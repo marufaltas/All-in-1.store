@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="ar"> 
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>All in 1 Store</title>
+  <link href="style.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+</head>
+<body dir="rtl">
+  <header class="site-header">
+    <div class="header-left"></div>
+    <div class="header-center" style="display:flex;align-items:center;flex-direction:column;justify-content:center;gap:8px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <img id="site-logo" src="assets/icon-b.png" alt="logo" class="site-logo">
+        <h1 class="neon-title">All in 1 Store</h1>
+      </div>
+      <div class="header-actions" style="display:flex;gap:8px;align-items:center">
+        <button id="open-cart" class="btn cart-btn">🛒 <span id="cart-count">0</span></button>
+        <button id="open-login" class="btn outline">🔑 تسجيل دخول</button>
+        <button id="open-account" class="btn">📝 إنشاء حساب</button>
+        <button id="user-profile-btn" class="btn" style="display:none">👤 <span id="user-profile-name"></span></button>
+        <button id="admin-status" class="btn" style="display:none">⚙️ لوحة الادمن</button>
+      </div>
+    </div>
+  </header>
+
+  <div style="display:flex;gap:16px">
+    <!-- Cart Modal (replaces sidebar) -->
+    <div id="cart-modal" class="modal hidden" aria-hidden="true">
+      <div class="modal-content glass" style="max-width:520px;width:95%;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h3 style="margin:0">🛒 العربة</h3>
+          <button id="close-cart-modal" class="btn-close">✕</button>
+        </div>
+        <div id="cart-items" style="max-height:calc(60vh);overflow-y:auto;border:1px solid rgba(255,255,255,0.06);padding:10px;border-radius:8px"></div>
+        <div style="margin-top:12px">
+          <div style="margin-bottom:8px;padding:10px;border-radius:8px;background:rgba(0,0,0,0.12);">📦 <strong>أسعار الشحن</strong>:<br>
+            القاهرة والجيزة والاسكندرية - <strong>85 ج.م</strong><br>
+            محافظات الدلتا - <strong>90 ج.م</strong><br>
+            محافظات الصعيد - <strong>95 ج.م</strong>
+          </div>
+          <label style="display:flex;gap:8px;align-items:center;margin-bottom:8px">اختر منطقتك للشحن:
+            <select id="shipping-region" class="input" style="width:220px;margin-right:8px">
+              <option value="cairo">القاهرة والجيزة والإسكندرية</option>
+              <option value="delta">محافظات الدلتا</option>
+              <option value="saeed">محافظات الصعيد</option>
+            </select>
+          </label>
+          <div class="cart-summary" style="margin-top:6px">
+            <div style="font-weight:600;padding:12px;background:rgba(124,58,237,0.06);border-radius:8px">المجموع: <span id="cart-total">0</span> ج.م</div>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button id="checkout-btn" class="btn primary" style="flex:1">✅ شراء الآن</button>
+              <button id="clear-cart-btn" class="btn outline" style="flex:1">🗑️ مسح</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="container">
+
+  <main class="container">
+    <section class="hero">
+      <p class="hero-sub">✨ متجرك المفضل لكل ما تحتاجه | تسوق ذكي، شحن سريع، أسعار منافسة 🚀</p>
+    </section>
+
+    <section class="filters">
+      <input id="search-input" type="text" placeholder="🔍 ابحث عن المنتج..." class="input">
+      <select id="sort-select" class="input">
+        <option value="newest">⏰ الأحدث أولاً</option>
+        <option value="price-low">💰 السعر: الأقل أولاً</option>
+        <option value="price-high">💸 السعر: الأعلى أولاً</option>
+        <option value="name">📝 ترتيب أبجدي</option>
+      </select>
+    </section>
+
+    <h2 style="text-align:center;color:#06b6d4;margin:20px 0">🏪 المنتجات المتاحة</h2>
+    <section id="products" class="products-grid"></section>
+    </main>
+  </div>
+
+  <!-- Admin Product Modal (add / edit) -->
+  <div id="admin-product-modal" class="modal hidden">
+    <div class="modal-content glass" style="max-width:520px;width:95%;">
+      <h3 style="text-align:center;margin-bottom:12px">➕ إضافة / تعديل منتج</h3>
+      <div style="display:grid;gap:10px">
+        <input id="ap-name" placeholder="🏷️ اسم المنتج" class="input">
+        <input id="ap-price" type="number" placeholder="💰 السعر" class="input">
+        <input id="ap-main" placeholder="🖼️ الصورة الرئيسية (اسم ملف أو URL)" class="input">
+        <input id="ap-additional" placeholder="🖼️ صور إضافية (افصل بـ | )" class="input">
+        <input id="ap-colors" placeholder="🎨 الألوان (مفصولة بفواصل)" class="input">
+        <input id="ap-discount" type="number" placeholder="🏷️ نسبة الخصم (مثال: 10)" class="input">
+        <label style="display:flex;align-items:center;gap:8px"><input id="ap-free-shipping" type="checkbox"> 🚚 شحن مجاني</label>
+        <textarea id="ap-desc" placeholder="📝 الوصف" class="input" style="min-height:80px"></textarea>
+        <div style="display:flex;gap:8px">
+          <button id="ap-save" class="btn primary" style="flex:1">حفظ</button>
+          <button id="ap-cancel" class="btn outline" style="flex:1">إلغاء</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- cart modal removed — using persistent sidebar on the side -->
+
+  <!-- Admin Login Modal -->
+  <div id="admin-login-modal" class="modal hidden">
+    <div class="modal-content glass" style="width:90%;max-width:420px">
+      <h3 style="text-align:center">⚙️ تسجيل دخول الادمن</h3>
+      <input id="admin-email" type="email" placeholder="📧 البريد الإلكتروني" class="input">
+      <input id="admin-password" type="password" placeholder="🔐 كلمة المرور" class="input">
+      <button id="admin-login-btn" class="btn primary" style="width:100%;margin-top:10px">🔓 دخول</button>
+      <button id="close-admin-login" class="btn outline" style="width:100%;margin-top:8px">❌ إغلاق</button>
+    </div>
+  </div>
+
+  <!-- Admin panel (hidden unless logged as admin) -->
+  <div id="admin-panel" class="panel hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h2 style="margin:0">⚙️ لوحة الادمن</h2>
+      <button id="logout-admin" class="btn">🚪 تسجيل خروج</button>
+    </div>
+    <div class="admin-actions">
+      <input id="excel-file" type="file" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel">
+      <button id="import-excel" class="btn">📥 استيراد من ملف</button>
+      <button id="add-product" class="btn outline">➕ إضافة منتج</button>
+      <button id="export-products" class="btn outline">📤 تصدير</button>
+      <button id="export-products-json" class="btn outline">📦 تنزيل JSON</button>
+    </div>
+    <div id="admin-products" style="max-height:60vh;overflow-y:auto;margin-top:12px"></div>
+
+    <h3>🤖 إعدادات الذكاء الاصطناعي</h3>
+    <p class="muted">(اختياري) يتم استخدام مفتاح Gemini لتوليد الوصف آلياً.</p>
+    <input id="gemini-key" placeholder="مفتاح Gemini (اختياري)" class="input" value="AIzaSyA46PXI2lz4luZrv5hJZnT5wt096CF1Xjg">
+    <button id="generate-desc" class="btn">✨ توليد وصف تلقائي</button>
+
+    <h3 style="margin-top:12px">🚀 نشر التغييرات (Serverless)</h3>
+    <p class="muted">للنشر الآلي على المستضيف: أدخل "رمز النشر" ثم اضغط حفظ إلى الخادم.</p>
+    <input id="deploy-token" placeholder="رمز النشر (سرّي)" class="input">
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button id="save-server-btn" class="btn primary" style="flex:1">⬆️ حفظ إلى الخادم (Serverless)</button>
+      <button id="download-json-btn" class="btn outline" style="flex:1">📦 تنزيل JSON</button>
+    </div>
+
+    <h3>📊 احصائيات وتقارير</h3>
+    <div id="stats" style="display:grid;gap:12px"></div>
+
+    <h3 style="margin-top:20px">👥 إدارة الحسابات</h3>
+    <div id="accounts-list" style="max-height:40vh;overflow-y:auto"></div>
+  </div>
+
+  <!-- Account modal -->
+  <div id="account-modal" class="modal hidden">
+    <div class="modal-content glass" style="width:90%;max-width:450px">
+      <h3 style="text-align:center;margin-bottom:20px">👤 حسابك الشخصي</h3>
+      <div style="display:grid;gap:12px">
+        <div>
+          <label style="font-size:12px;color:rgba(255,255,255,0.7)">👤 الاسم *</label>
+          <input id="user-name" placeholder="محمد علي" class="input">
+        </div>
+        <div>
+          <label style="font-size:12px;color:rgba(255,255,255,0.7)">📧 الإيمل *</label>
+          <input id="user-email" type="email" placeholder="name@example.com" class="input">
+        </div>
+        <div>
+          <label style="font-size:12px;color:rgba(255,255,255,0.7)">📱 رقم الهاتف *</label>
+          <input id="user-phone" type="tel" placeholder="01012345678" class="input">
+        </div>
+        <div>
+          <label style="font-size:12px;color:rgba(255,255,255,0.7)">🔐 كلمة المرور *</label>
+          <input id="user-password" type="password" placeholder="كلمة المرور" class="input">
+        </div>
+        <div>
+          <label style="font-size:12px;color:rgba(255,255,255,0.7)">📍 عنوان التوصيل *</label>
+          <textarea id="user-address" placeholder="ادخل العنوان كاملاً (المدينة، الحي، رقم البيت)" class="input" style="min-height:80px;resize:vertical;font-family:'Cairo',sans-serif"></textarea>
+        </div>
+      </div>
+      <button id="save-account" class="btn primary" style="width:100%;margin-top:16px">💾 حفظ الحساب</button>
+      <button id="close-account" class="btn outline" style="width:100%;margin-top:8px">❌ إغلاق</button>
+    </div>
+  </div>
+
+  <!-- Login Modal -->
+  <div id="login-modal" class="modal hidden">
+    <div class="modal-content glass" style="width:90%;max-width:420px">
+      <h3 style="text-align:center;margin-bottom:12px">🔑 تسجيل الدخول</h3>
+      <input id="login-email" type="email" placeholder="📧 الإيمل" class="input">
+      <input id="login-phone" type="tel" placeholder="📱 رقم الهاتف" class="input">
+      <input id="login-password" type="password" placeholder="🔐 كلمة المرور" class="input">
+      <button id="login-btn" class="btn primary" style="width:100%;margin-top:10px">🔓 دخول</button>
+      <button id="close-login" class="btn outline" style="width:100%;margin-top:8px">❌ إغلاق</button>
+    </div>
+  </div>
+
+  <!-- Message Modal (generic) -->
+  <div id="message-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-content glass" style="max-width:420px;text-align:center">
+      <div id="message-modal-title" style="font-size:18px;font-weight:800;margin-bottom:8px"></div>
+      <div id="message-modal-body" style="margin-bottom:16px;color:rgba(255,255,255,0.9)"></div>
+      <button id="message-modal-ok" class="btn primary" style="width:100%">حسناً</button>
+    </div>
+  </div>
+
+  <!-- Confirm Modal -->
+  <div id="confirm-modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-content glass" style="max-width:420px;text-align:center">
+      <div id="confirm-modal-body" style="margin-bottom:16px;font-size:15px"></div>
+      <div style="display:flex;gap:8px">
+        <button id="confirm-yes" class="btn primary" style="flex:1">نعم</button>
+        <button id="confirm-no" class="btn outline" style="flex:1">لا</button>
+      </div>
+    </div>
+
+      <!-- Toast container -->
+      <div id="toast-container" style="position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2000;display:flex;flex-direction:column;gap:8px;pointer-events:none"></div>
+  </div>
+
+  <!-- Success Modal -->
+  <div id="success-modal" class="modal hidden">
+    <div class="modal-content neon-popup" style="text-align:center;animation:pulse 0.5s">
+      <div style="font-size:48px;margin-bottom:12px">🎉</div>
+      <h3>✅ تم إرسال طلبك بنجاح</h3>
+      <p>سيتم تأكيد طلبك في أقرب وقت عبر الواتساب.</p>
+      <p style="font-size:12px;color:rgba(255,255,255,0.6)">📲 تحقق من رسالتك على WhatsApp</p>
+      <button id="close-success" class="btn" style="width:100%;margin-top:10px">✓ إغلاق</button>
+    </div>
+  </div>
+
+  <!-- User Profile Modal -->
+  <div id="user-profile-modal" class="modal hidden">
+    <div class="modal-content glass" style="width:90%;max-width:400px">
+      <h3 style="text-align:center;margin-bottom:16px">👤 بيانات حسابك</h3>
+      <div style="display:grid;gap:12px">
+        <div style="background:rgba(124,58,237,0.1);padding:10px;border-radius:8px">
+          <label style="font-size:11px;color:rgba(255,255,255,0.6)">👤 الاسم</label>
+          <p id="profile-name" style="margin:6px 0;font-weight:600"></p>
+        </div>
+        <div style="background:rgba(124,58,237,0.1);padding:10px;border-radius:8px">
+          <label style="font-size:11px;color:rgba(255,255,255,0.6)">📱 الهاتف</label>
+          <p id="profile-phone" style="margin:6px 0;font-weight:600"></p>
+        </div>
+        <div style="background:rgba(124,58,237,0.1);padding:10px;border-radius:8px">
+          <label style="font-size:11px;color:rgba(255,255,255,0.6)">📍 العنوان</label>
+          <p id="profile-address" style="margin:6px 0;font-weight:600"></p>
+        </div>
+      </div>
+      <button id="logout-user" class="btn outline" style="width:100%;margin-top:16px">🚪 تسجيل خروج</button>
+      <button id="close-profile" class="btn outline" style="width:100%;margin-top:8px">❌ إغلاق</button>
+    </div>
+  </div>
+
+  <template id="product-card">
+    <article class="product-card">
+      <div class="product-badge" style="position:absolute;top:8px;right:8px;background:rgba(124,58,237,0.8);padding:4px 8px;border-radius:4px;font-size:11px;display:none"></div>
+      <img class="product-img" src="" alt="">
+      <h4 class="product-name"></h4>
+      <p class="product-desc" style="font-size:12px;color:rgba(255,255,255,0.6);margin:6px 0;max-height:40px;overflow:hidden"></p>
+      <div class="product-price"></div>
+      <div class="product-actions">
+        <button class="btn add-to-cart" style="width:100%">🛒 أضف إلى العربة</button>
+      </div>
+    </article>
+  </template>
+
+  <!-- Product Detail Modal -->
+  <div id="product-modal" class="modal hidden">
+    <div class="modal-content glass" style="max-width:820px;width:96%;display:flex;gap:14px;align-items:flex-start;padding:16px">
+      <div style="flex:1;min-width:320px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <h3 id="pm-title" style="margin:0">تفاصيل المنتج</h3>
+          <button id="pm-close" class="btn-close">✕</button>
+        </div>
+        <div style="background:rgba(0,0,0,0.12);padding:12px;border-radius:8px;text-align:center">
+          <img id="pm-main-image" src="https://via.placeholder.com/600x400?text=Product" style="max-width:100%;height:auto;border-radius:8px;object-fit:cover">
+        </div>
+        <div id="pm-thumbs" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"></div>
+      </div>
+      <div style="flex:1;min-width:260px;display:flex;flex-direction:column">
+        <div style="margin-bottom:12px">
+          <div id="pm-price" style="font-size:20px;color:#06b6d4;font-weight:700"></div>
+          <div id="pm-old-price" style="font-size:12px;color:rgba(255,255,255,0.6);text-decoration:line-through;margin-top:6px;display:none"></div>
+        </div>
+        <div style="flex:1;overflow:auto">
+          <h4 style="margin:0 0 6px 0">الوصف</h4>
+          <p id="pm-desc" style="color:rgba(255,255,255,0.85);line-height:1.4"></p>
+          <h5 style="margin-top:12px">البيانات</h5>
+          <div id="pm-details" style="font-size:13px;color:rgba(255,255,255,0.75)"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button id="pm-add-to-cart" class="btn primary" style="flex:1">🛒 أضف إلى العربة</button>
+          <button id="pm-buy-now" class="btn outline" style="flex:1">💳 شراء الآن</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer / الحقوق -->
+  <footer class="site-footer" style="text-align:center;padding:18px 12px;color:rgba(255,255,255,0.75);font-size:14px;border-top:1px solid rgba(255,255,255,0.03);margin-top:24px">
+    تم صناعة وتطوير هذا المتجر الالكتروني بواسطة <strong>Dr.Mario Faltas</strong>
+    &nbsp; - &nbsp; للتواصل : <a href="https://wa.me/201284731863" style="color:#06b6d4;text-decoration:none">01284731863 واتساب</a>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
