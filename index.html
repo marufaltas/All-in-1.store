@@ -86,7 +86,7 @@
 
   <!-- Admin Product Modal (add / edit) -->
   <div id="admin-product-modal" class="modal hidden">
-    <div class="modal-content glass" style="max-width:520px;width:95%;">
+    <div class="modal-content glass" style="max-width:520px;width:95%;max-height:90vh;overflow-y:auto">
       <h3 style="text-align:center;margin-bottom:12px">➕ إضافة / تعديل منتج</h3>
       <div style="display:grid;gap:10px">
         <input id="ap-name" placeholder="🏷️ اسم المنتج" class="input">
@@ -96,6 +96,7 @@
         <input id="ap-colors" placeholder="🎨 الألوان (مفصولة بفواصل)" class="input">
         <input id="ap-discount" type="number" placeholder="🏷️ نسبة الخصم (مثال: 10)" class="input">
         <label style="display:flex;align-items:center;gap:8px"><input id="ap-free-shipping" type="checkbox"> 🚚 شحن مجاني</label>
+        <label style="display:flex;align-items:center;gap:8px"><input id="ap-trending" type="checkbox"> ⭐ منتج مميز (Trending)</label>
         <textarea id="ap-desc" placeholder="📝 الوصف" class="input" style="min-height:80px"></textarea>
         <div style="display:flex;gap:8px">
           <button id="ap-save" class="btn primary" style="flex:1">حفظ</button>
@@ -268,31 +269,35 @@
 
   <!-- Product Detail Modal -->
   <div id="product-modal" class="modal hidden">
-    <div class="modal-content glass" style="max-width:820px;width:96%;display:flex;gap:14px;align-items:flex-start;padding:16px">
-      <div style="flex:1;min-width:320px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <h3 id="pm-title" style="margin:0">تفاصيل المنتج</h3>
-          <button id="pm-close" class="btn-close">✕</button>
-        </div>
-        <div style="background:rgba(0,0,0,0.12);padding:12px;border-radius:8px;text-align:center">
-          <img id="pm-main-image" src="https://via.placeholder.com/600x400?text=Product" style="max-width:100%;height:auto;border-radius:8px;object-fit:cover">
-        </div>
-        <div id="pm-thumbs" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"></div>
+    <div class="modal-content glass" style="max-width:820px;width:96%;max-height:90vh;display:flex;flex-direction:column;gap:14px;align-items:stretch;padding:16px;overflow:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 id="pm-title" style="margin:0">تفاصيل المنتج</h3>
+        <button id="pm-close" class="btn-close">✕</button>
       </div>
-      <div style="flex:1;min-width:260px;display:flex;flex-direction:column">
-        <div style="margin-bottom:12px">
-          <div id="pm-price" style="font-size:20px;color:#06b6d4;font-weight:700"></div>
-          <div id="pm-old-price" style="font-size:12px;color:rgba(255,255,255,0.6);text-decoration:line-through;margin-top:6px;display:none"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;min-height:0">
+        <!-- Left: Images -->
+        <div style="min-width:0">
+          <div style="background:rgba(0,0,0,0.12);padding:12px;border-radius:8px;text-align:center">
+            <img id="pm-main-image" src="https://via.placeholder.com/600x400?text=Product" style="max-width:100%;height:auto;border-radius:8px;object-fit:cover">
+          </div>
+          <div id="pm-thumbs" style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"></div>
         </div>
-        <div style="flex:1;overflow:auto">
-          <h4 style="margin:0 0 6px 0">الوصف</h4>
-          <p id="pm-desc" style="color:rgba(255,255,255,0.85);line-height:1.4"></p>
-          <h5 style="margin-top:12px">البيانات</h5>
-          <div id="pm-details" style="font-size:13px;color:rgba(255,255,255,0.75)"></div>
-        </div>
-        <div style="display:flex;gap:8px;margin-top:12px">
-          <button id="pm-add-to-cart" class="btn primary" style="flex:1">🛒 أضف إلى العربة</button>
-          <button id="pm-buy-now" class="btn outline" style="flex:1">💳 شراء الآن</button>
+        <!-- Right: Details -->
+        <div style="min-width:0;display:flex;flex-direction:column;min-height:0">
+          <div style="margin-bottom:12px">
+            <div id="pm-price" style="font-size:20px;color:#06b6d4;font-weight:700"></div>
+            <div id="pm-old-price" style="font-size:12px;color:rgba(255,255,255,0.6);text-decoration:line-through;margin-top:6px;display:none"></div>
+          </div>
+          <div style="flex:1;overflow:auto">
+            <h4 style="margin:0 0 6px 0">الوصف</h4>
+            <p id="pm-desc" style="color:rgba(255,255,255,0.85);line-height:1.4;font-size:14px"></p>
+            <h5 style="margin-top:12px;margin-bottom:6px">البيانات</h5>
+            <div id="pm-details" style="font-size:13px;color:rgba(255,255,255,0.75)"></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button id="pm-add-to-cart" class="btn primary" style="flex:1">🛒 أضف إلى العربة</button>
+            <button id="pm-buy-now" class="btn outline" style="flex:1">💳 شراء الآن</button>
+          </div>
         </div>
       </div>
     </div>

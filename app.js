@@ -67,7 +67,8 @@ function renderProducts(filterTerm='', sortBy='newest'){
   filtered.forEach(p=>{
     const tpl = document.getElementById('product-card').content.cloneNode(true);
     const badge = tpl.querySelector('.product-badge');
-    if(p.discountPercent){ badge.textContent='🏷️ خصم '+p.discountPercent+'%'; badge.style.display='block'; }
+    if(p.isTrending){ badge.textContent='⭐ مميز'; badge.style.display='block'; }
+    else if(p.discountPercent){ badge.textContent='🏷️ خصم '+p.discountPercent+'%'; badge.style.display='block'; }
     else if(p.freeShipping){ badge.textContent='🚚 شحن مجاني'; badge.style.display='block'; }
     
     tpl.querySelector('.product-img').src = p.mainImage || 'https://via.placeholder.com/400x300?text=Product';
@@ -75,7 +76,8 @@ function renderProducts(filterTerm='', sortBy='newest'){
     tpl.querySelector('.product-desc').textContent = p.description || 'منتج عالي الجودة';
     
     let priceText = p.price + ' ج.م';
-    if(p.discountPercent){ priceText = (p.price * (1 - p.discountPercent/100)).toFixed(2) + ' ج.م'; }
+    if(p.freeShipping) priceText = '🚚 شحن مجاني';
+    else if(p.discountPercent){ priceText = (p.price * (1 - p.discountPercent/100)).toFixed(2) + ' ج.م'; }
     tpl.querySelector('.product-price').textContent = '💰 ' + priceText;
     
     const btn = tpl.querySelector('.add-to-cart'); 
@@ -114,9 +116,11 @@ function renderCart(){
     const effectivePrice = p.discountPercent ? (p.price * (1 - p.discountPercent/100)) : p.price;
     const row = document.createElement('div'); 
     row.className='cart-row';
-    row.innerHTML = `<div style="display:flex;gap:8px;align-items:center"><img src="${p.mainImage||'https://via.placeholder.com/80'}" style="width:64px;height:48px;object-fit:cover;border-radius:6px"><div><div style="font-size:13px">${p.name}</div><div style="font-size:11px;color:rgba(255,255,255,0.6)">${effectivePrice.toFixed(2)} ج.م</div></div></div><div><input type='number' min='1' value='${item.q}' data-id='${item.id}' class='q-inp'></div><button class='btn-del' data-id='${item.id}' style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:16px">🗑️</button>`;
+    let priceDisplay = effectivePrice.toFixed(2) + ' ج.م';
+    if(p.freeShipping) priceDisplay = '🚚 شحن مجاني';
+    row.innerHTML = `<div style="display:flex;gap:8px;align-items:center"><img src="${p.mainImage||'https://via.placeholder.com/80'}" style="width:64px;height:48px;object-fit:cover;border-radius:6px"><div><div style="font-size:13px">${p.name}</div><div style="font-size:11px;color:rgba(255,255,255,0.6)">${priceDisplay}</div></div></div><div><input type='number' min='1' value='${item.q}' data-id='${item.id}' class='q-inp'></div><button class='btn-del' data-id='${item.id}' style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:16px">🗑️</button>`;
     container.appendChild(row);
-    subtotal += effectivePrice * item.q;
+    subtotal += (p.freeShipping ? 0 : effectivePrice) * item.q;
   });
 
   // compute shipping based on selected region
@@ -209,6 +213,23 @@ function showToast(text, opts={duration:2500}){
   setTimeout(()=>{ el.classList.add('hide'); setTimeout(()=>el.remove(),300); }, opts.duration);
 }
 
+// --- Welcome popup for new accounts ---
+function showWelcomePopup(name){
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `<div class="modal-content glass" style="max-width:480px;text-align:center;padding:32px 24px;animation:slideIn 0.4s ease-out">
+    <button onclick="this.closest('.modal').remove()" class="btn-close" style="position:absolute;top:12px;left:12px">✕</button>
+    <div style="font-size:48px;margin-top:12px">🎉👋</div>
+    <h2 style="color:#06b6d4;margin:16px 0;font-size:28px">أهلاً وسهلاً، ${name}!</h2>
+    <p style="color:rgba(255,255,255,0.85);line-height:1.6;margin:12px 0">نرحب بك في <strong>All in 1 Store</strong> 🛍️</p>
+    <p style="color:rgba(255,255,255,0.75);font-size:14px;margin:16px 0">استمتع بتجربة التسوق الرائعة مع أفضل المنتجات وأسعار منافسة! ✨</p>
+    <div style="margin:20px 0;padding:12px;background:rgba(124,58,237,0.1);border-radius:8px;font-size:12px;color:rgba(255,255,255,0.7)">مع تحياتي:<br><strong>Dr. Mario Faltas</strong> 👨‍💼</div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.classList.remove('hidden');
+  setTimeout(()=>{ if(modal.parentNode) modal.remove(); }, 5000);
+}
+
 // --- Product detail modal ---
 function openProductModal(id){
   const p = products.find(x=>x.id===id); if(!p) return;
@@ -225,24 +246,29 @@ function openProductModal(id){
   });
   // price & description
   const effectivePrice = p.discountPercent ? (p.price * (1 - p.discountPercent/100)) : p.price;
-  document.getElementById('pm-price').textContent = effectivePrice.toFixed(2) + ' ج.م';
-  if(p.discountPercent){ document.getElementById('pm-old-price').style.display='block'; document.getElementById('pm-old-price').textContent = p.price.toFixed(2)+' ج.م'; }
+  if(p.freeShipping){
+    document.getElementById('pm-price').innerHTML = '<span style="color:#4ade80">🚚 شحن مجاني</span>';
+  } else {
+    document.getElementById('pm-price').textContent = effectivePrice.toFixed(2) + ' ج.م';
+  }
+  if(p.discountPercent && !p.freeShipping){ document.getElementById('pm-old-price').style.display='block'; document.getElementById('pm-old-price').textContent = p.price.toFixed(2)+' ج.م'; }
   else document.getElementById('pm-old-price').style.display='none';
   document.getElementById('pm-desc').textContent = p.description || '';
   const details = [];
   if(p.colors) details.push('الألوان: '+p.colors);
-  if(p.freeShipping) details.push('شحن: مجاني');
+  if(p.freeShipping) details.push('توصيل: مجاني في جميع أنحاء مصر');
   if(p.discountPercent) details.push('خصم: '+p.discountPercent+'%');
+  if(p.isTrending) details.push('⭐ منتج مميز');
   document.getElementById('pm-details').innerHTML = details.join('<br>') || '&nbsp;';
   // wire buttons
   const addBtn = document.getElementById('pm-add-to-cart');
   const buyBtn = document.getElementById('pm-buy-now');
   addBtn.onclick = ()=>{ addToCart(p.id); modal.classList.add('hidden'); };
-  buyBtn.onclick = ()=>{ // quick buy: ensure user then open whatsapp for this single product
+  buyBtn.onclick = ()=>{ // quick buy
     if(!user){ showMessage('تنبيه','❌ يرجى إنشاء حساب أو تسجيل الدخول أولاً','error').then(()=>{ openAccountModal(); }); return; }
     const qty = 1;
-    const effectivePrice = p.discountPercent ? (p.price * (1 - p.discountPercent/100)) : p.price;
-    const total = (effectivePrice * qty);
+    const price = p.freeShipping ? 0 : effectivePrice;
+    const total = (price * qty);
     const msg = `*🛍️ طلب سريع من All in 1 Store*\n\n*👤 البيانات:*\n📝 الاسم: ${user.name}\n📱 الهاتف: ${user.phone}\n📍 العنوان: ${user.address}\n\n*📦 المنتج:*\n📦 ${p.name} x ${qty} = ${total.toFixed(2)} ج.م\n═══════════════════\n💰 الإجمالي: ${total.toFixed(2)} ج.م`;
     const phone = '201284731863';
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank');
@@ -327,8 +353,8 @@ function openAdminProductModal(mode, id){
   const modal = $('#admin-product-modal'); if(!modal) return;
   modal.dataset.mode = mode; modal.dataset.editId = id||'';
   // clear fields
-  $('#ap-name').value=''; $('#ap-price').value=''; $('#ap-main').value=''; $('#ap-additional').value=''; $('#ap-colors').value=''; $('#ap-discount').value=''; $('#ap-free-shipping').checked=false; $('#ap-desc').value='';
-  if(mode==='edit'){ const p = products.find(x=>x.id===id); if(!p) return; $('#ap-name').value=p.name||''; $('#ap-price').value=p.price||0; $('#ap-main').value=(p.mainImage||''); $('#ap-additional').value=(p.images||[]).join('|'); $('#ap-colors').value=p.colors||''; $('#ap-discount').value=p.discountPercent||0; $('#ap-free-shipping').checked=!!p.freeShipping; $('#ap-desc').value=p.description||''; }
+  $('#ap-name').value=''; $('#ap-price').value=''; $('#ap-main').value=''; $('#ap-additional').value=''; $('#ap-colors').value=''; $('#ap-discount').value=''; $('#ap-free-shipping').checked=false; $('#ap-trending').checked=false; $('#ap-desc').value='';
+  if(mode==='edit'){ const p = products.find(x=>x.id===id); if(!p) return; $('#ap-name').value=p.name||''; $('#ap-price').value=p.price||0; $('#ap-main').value=(p.mainImage||''); $('#ap-additional').value=(p.images||[]).join('|'); $('#ap-colors').value=p.colors||''; $('#ap-discount').value=p.discountPercent||0; $('#ap-free-shipping').checked=!!p.freeShipping; $('#ap-trending').checked=!!p.isTrending; $('#ap-desc').value=p.description||''; }
   modal.classList.remove('hidden');
 }
 
@@ -344,6 +370,7 @@ function saveAdminProductFromModal(){
   const colors = $('#ap-colors').value.trim();
   const discount = parseInt($('#ap-discount').value) || 0;
   const freeShipping = !!$('#ap-free-shipping').checked;
+  const isTrending = !!$('#ap-trending').checked;
   const desc = $('#ap-desc').value.trim();
   if(!name){ showMessage('خطأ','❌ اسم المنتج مطلوب','error'); return; }
   if(mode==='add'){
@@ -351,9 +378,9 @@ function saveAdminProductFromModal(){
     const imgs = additional?additional.split('|').map(s=>s.trim()).filter(Boolean):[];
     const mainImg = main && !/^https?:\/\//i.test(main) && !main.startsWith('/') ? `assets/products/${main}`:main;
     const imgsResolved = imgs.map(s=>(!/^https?:\/\//i.test(s) && !s.startsWith('/'))?`assets/products/${s}`:s);
-    products.unshift({id,name,price,mainImage:mainImg,images:imgsResolved,colors,description:desc,discountPercent:discount,freeShipping});
+    products.unshift({id,name,price,mainImage:mainImg,images:imgsResolved,colors,description:desc,discountPercent:discount,freeShipping,isTrending});
   } else if(mode==='edit'){
-    const p = products.find(x=>x.id===editId); if(!p) return; p.name=name; p.price=price; p.description=desc; p.discountPercent=discount; p.freeShipping=freeShipping; p.colors=colors; p.mainImage = main && !/^https?:\/\//i.test(main) && !main.startsWith('/') ? `assets/products/${main}`:main; p.images = additional?additional.split('|').map(s=>s.trim()).filter(Boolean).map(s=>(!/^https?:\/\//i.test(s) && !s.startsWith('/'))?`assets/products/${s}`:s):[];
+    const p = products.find(x=>x.id===editId); if(!p) return; p.name=name; p.price=price; p.description=desc; p.discountPercent=discount; p.freeShipping=freeShipping; p.isTrending=isTrending; p.colors=colors; p.mainImage = main && !/^https?:\/\//i.test(main) && !main.startsWith('/') ? `assets/products/${main}`:main; p.images = additional?additional.split('|').map(s=>s.trim()).filter(Boolean).map(s=>(!/^https?:\/\//i.test(s) && !s.startsWith('/'))?`assets/products/${s}`:s):[];
   }
   save(STORAGE_KEYS.PRODUCTS, products); renderProducts(); renderAdminProducts(); modal.classList.add('hidden'); showMessage('نجاح','✅ تم حفظ المنتج','success');
   // Attempt to persist shared products: trigger download and try PUT to server
@@ -536,6 +563,7 @@ function saveAccount(){
   const password = $('#user-password').value.trim();
   const address=$('#user-address').value.trim(); 
   if(!name||!phone||!address||!email||!password){ showMessage('تحذير','❌ جميع الحقول مطلوبة','error'); return; } 
+  const isNewAccount = !accounts.find(a=>a.email===email);
   user={name,email,phone,address}; 
   save(STORAGE_KEYS.USER,user); 
   // Also persist to accounts (for login)
@@ -543,11 +571,11 @@ function saveAccount(){
   if(!existing) { accounts.push({name,email,phone,address,password,created:Date.now()}); save(STORAGE_KEYS.ACCOUNTS, accounts); }
   $('#account-modal').classList.add('hidden'); 
   updateUserProfile();
-  showMessage('نجاح','✅ تم حفظ بيانات حسابك بنجاح','success'); 
   // If signup was for admin account, activate admin UI
   if(email === ADMIN_CREDS.email && phone === ADMIN_PHONE){ adminLoggedIn = true; const adm = $('#admin-status'); if(adm) adm.style.display='inline-block'; const ap = $('#admin-panel'); if(ap) ap.classList.remove('hidden'); renderAdminProducts(); renderStats(); renderAccounts(); }
-  // Try to persist users.json (download + try PUT)
-  saveUsersShared();
+  // Show welcome message if new account
+  if(isNewAccount) showWelcomePopup(name);
+  else showMessage('نجاح','✅ تم حفظ بيانات حسابك بنجاح','success');
 }
 
 function updateUserProfile(){
@@ -651,16 +679,11 @@ window.addEventListener('load', ()=>{
     // ignore — use localStorage
   }).catch(()=>{/*ignore*/}).finally(()=>{});
 
-  // Try to load shared users from users.json (if hosted)
-  fetch('users.json').then(r=>{ if(r.ok) return r.json(); throw new Error('no shared users'); }).then(sharedUsers=>{
-    if(Array.isArray(sharedUsers) && sharedUsers.length>0){ accounts = sharedUsers; save(STORAGE_KEYS.ACCOUNTS, accounts); }
-  }).catch(()=>{/*ignore*/}).finally(()=>{
-    // Render UI after attempting both loads (products/users)
-    renderProducts(); 
-    renderCart(); 
-    renderStats();
-    updateUserProfile();
-  });
+  // Render UI after loading products (skip users.json fetch to avoid auto-download)
+  renderProducts(); 
+  renderCart(); 
+  renderStats();
+  updateUserProfile();
   // If there's an existing logged-in user who is admin (email AND phone match), enable admin UI
   if(user && user.email && user.email === ADMIN_CREDS.email && user.phone && user.phone === ADMIN_PHONE){ adminLoggedIn = true; const adm = $('#admin-status'); if(adm) adm.style.display='inline-block'; const ap = $('#admin-panel'); if(ap) ap.classList.remove('hidden'); renderAdminProducts(); renderStats(); renderAccounts(); }
   

@@ -26,6 +26,11 @@
 #message-modal .modal-content{border:1px solid rgba(6,182,212,0.12)}
 #confirm-modal .modal-content{border:1px solid rgba(124,58,237,0.14)}
 
+/* Animations for modals */
+@keyframes slideIn{from{transform:translateY(-20px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{animation:fadeIn 0.3s ease-out}
+
 *{box-sizing:border-box;font-family:'Cairo',sans-serif}
 body{margin:0;background:linear-gradient(180deg,#071020 0%, #07102a 100%);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
 
