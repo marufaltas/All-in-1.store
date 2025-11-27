@@ -51,11 +51,15 @@ function showConfirm(msg){
 stats.visits = (stats.visits||0)+1; save(STORAGE_KEYS.STATS, stats);
 
 // Render products with search/sort/filter
-function renderProducts(filterTerm='', sortBy='newest'){
+function renderProducts(filterTerm='', sortBy='newest', category=''){
   const container = $('#products'); 
   container.innerHTML='';
   
-  let filtered = products.filter(p=>p.name.toLowerCase().includes(filterTerm.toLowerCase()));
+  let filtered = products.filter(p=>{
+    const matchSearch = p.name.toLowerCase().includes(filterTerm.toLowerCase());
+    const matchCategory = !category || (p.category === category);
+    return matchSearch && matchCategory;
+  });
   
   if(sortBy==='price-low') filtered.sort((a,b)=>a.price-b.price);
   else if(sortBy==='price-high') filtered.sort((a,b)=>b.price-a.price);
@@ -76,8 +80,7 @@ function renderProducts(filterTerm='', sortBy='newest'){
     tpl.querySelector('.product-desc').textContent = p.description || 'منتج عالي الجودة';
     
     let priceText = p.price + ' ج.م';
-    if(p.freeShipping) priceText = '🚚 شحن مجاني';
-    else if(p.discountPercent){ priceText = (p.price * (1 - p.discountPercent/100)).toFixed(2) + ' ج.م'; }
+    if(p.discountPercent){ priceText = (p.price * (1 - p.discountPercent/100)).toFixed(2) + ' ج.م'; }
     tpl.querySelector('.product-price').textContent = '💰 ' + priceText;
     
     const btn = tpl.querySelector('.add-to-cart'); 
@@ -117,7 +120,6 @@ function renderCart(){
     const row = document.createElement('div'); 
     row.className='cart-row';
     let priceDisplay = effectivePrice.toFixed(2) + ' ج.م';
-    if(p.freeShipping) priceDisplay = '🚚 شحن مجاني';
     row.innerHTML = `<div style="display:flex;gap:8px;align-items:center"><img src="${p.mainImage||'https://via.placeholder.com/80'}" style="width:64px;height:48px;object-fit:cover;border-radius:6px"><div><div style="font-size:13px">${p.name}</div><div style="font-size:11px;color:rgba(255,255,255,0.6)">${priceDisplay}</div></div></div><div><input type='number' min='1' value='${item.q}' data-id='${item.id}' class='q-inp'></div><button class='btn-del' data-id='${item.id}' style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:16px">🗑️</button>`;
     container.appendChild(row);
     subtotal += (p.freeShipping ? 0 : effectivePrice) * item.q;
@@ -126,8 +128,9 @@ function renderCart(){
   // compute shipping based on selected region
   const region = (document.getElementById('shipping-region') && document.getElementById('shipping-region').value) || 'cairo';
   const shippingRates = {cairo:85, delta:90, saeed:95};
-  const shippingFee = shippingRates[region] || 85;
-  const grandTotal = subtotal + (cart.length>0 ? shippingFee : 0);
+  const hasAllFreeShipping = cart.every(item=>{ const p = products.find(x=>x.id===item.id); return p && p.freeShipping; });
+  const shippingFee = (cart.length>0 && !hasAllFreeShipping) ? (shippingRates[region] || 85) : 0;
+  const grandTotal = subtotal + shippingFee;
 
   document.getElementById(totalId).textContent = grandTotal.toFixed(2);
 
@@ -168,7 +171,8 @@ function checkout(){
   // shipping
   const region = (document.getElementById('shipping-region') && document.getElementById('shipping-region').value) || 'cairo';
   const shippingRates = {cairo:85, delta:90, saeed:95};
-  const shippingFee = cart.length>0 ? (shippingRates[region] || 85) : 0;
+  const hasAllFreeShipping = cart.every(item=>{ const p = products.find(x=>x.id===item.id); return p && p.freeShipping; });
+  const shippingFee = (cart.length>0 && !hasAllFreeShipping) ? (shippingRates[region] || 85) : 0;
   const total = subtotal + shippingFee;
   lines.push('═══════════════════');
   lines.push('💰 المجموع: ' + subtotal.toFixed(2) + ' ج.م');
@@ -246,11 +250,7 @@ function openProductModal(id){
   });
   // price & description
   const effectivePrice = p.discountPercent ? (p.price * (1 - p.discountPercent/100)) : p.price;
-  if(p.freeShipping){
-    document.getElementById('pm-price').innerHTML = '<span style="color:#4ade80">🚚 شحن مجاني</span>';
-  } else {
-    document.getElementById('pm-price').textContent = effectivePrice.toFixed(2) + ' ج.م';
-  }
+  document.getElementById('pm-price').textContent = effectivePrice.toFixed(2) + ' ج.م';
   if(p.discountPercent && !p.freeShipping){ document.getElementById('pm-old-price').style.display='block'; document.getElementById('pm-old-price').textContent = p.price.toFixed(2)+' ج.م'; }
   else document.getElementById('pm-old-price').style.display='none';
   document.getElementById('pm-desc').textContent = p.description || '';
@@ -267,9 +267,10 @@ function openProductModal(id){
   buyBtn.onclick = ()=>{ // quick buy
     if(!user){ showMessage('تنبيه','❌ يرجى إنشاء حساب أو تسجيل الدخول أولاً','error').then(()=>{ openAccountModal(); }); return; }
     const qty = 1;
-    const price = p.freeShipping ? 0 : effectivePrice;
-    const total = (price * qty);
-    const msg = `*🛍️ طلب سريع من All in 1 Store*\n\n*👤 البيانات:*\n📝 الاسم: ${user.name}\n📱 الهاتف: ${user.phone}\n📍 العنوان: ${user.address}\n\n*📦 المنتج:*\n📦 ${p.name} x ${qty} = ${total.toFixed(2)} ج.م\n═══════════════════\n💰 الإجمالي: ${total.toFixed(2)} ج.م`;
+    const productPrice = effectivePrice * qty;
+    const shippingFee = p.freeShipping ? 0 : 85;
+    const total = productPrice + shippingFee;
+    const msg = `*🛍️ طلب سريع من All in 1 Store*\n\n*👤 البيانات:*\n📝 الاسم: ${user.name}\n📱 الهاتف: ${user.phone}\n📍 العنوان: ${user.address}\n\n*📦 المنتج:*\n📦 ${p.name} x ${qty} = ${productPrice.toFixed(2)} ج.م\n${shippingFee > 0 ? `🚚 الشحن: ${shippingFee.toFixed(2)} ج.م` : `🚚 شحن مجاني`}\n═══════════════════\n💰 الإجمالي: ${total.toFixed(2)} ج.م`;
     const phone = '201284731863';
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,'_blank');
     modal.classList.add('hidden');
@@ -317,7 +318,7 @@ function renderAdminProducts(){
   products.forEach(p=>{
     const el = document.createElement('div'); 
     el.className='admin-product';
-    el.innerHTML = `<img src='${p.mainImage||"https://via.placeholder.com/80"}'><div style='flex:1;min-width:150px'><strong style='font-size:13px'>${p.name}</strong><div style='font-size:11px;color:rgba(255,255,255,0.6)'>${p.price} ج.م ${p.discountPercent?(' - 🏷️ '+p.discountPercent+'%'):''} ${p.freeShipping?'- 🚚 مجاني':''}</div></div><div style='display:flex;flex-direction:column;gap:4px'><button class='btn small edit' data-id='${p.id}' style='padding:4px 8px;font-size:11px'>✏️ تعديل</button><button class='btn small del' data-id='${p.id}' style='padding:4px 8px;font-size:11px'>🗑️ حذف</button></div>`;
+    el.innerHTML = `<img src='${p.mainImage||"https://via.placeholder.com/80"}'><div style='flex:1;min-width:150px'><strong style='font-size:13px'>${p.name}</strong><div style='font-size:11px;color:rgba(255,255,255,0.6)'>${p.price} ج.م ${p.discountPercent?(' - 🏷️ '+p.discountPercent+'%'):''} ${p.freeShipping?'- 🚚 مجاني':''}</div><div style='font-size:10px;color:rgba(124,58,237,0.9)'>📂 ${p.category||'الكترونيات'}</div></div><div style='display:flex;flex-direction:column;gap:4px'><button class='btn small edit' data-id='${p.id}' style='padding:4px 8px;font-size:11px'>✏️ تعديل</button><button class='btn small del' data-id='${p.id}' style='padding:4px 8px;font-size:11px'>🗑️ حذف</button></div>`;
     c.appendChild(el);
   });
   
@@ -353,8 +354,8 @@ function openAdminProductModal(mode, id){
   const modal = $('#admin-product-modal'); if(!modal) return;
   modal.dataset.mode = mode; modal.dataset.editId = id||'';
   // clear fields
-  $('#ap-name').value=''; $('#ap-price').value=''; $('#ap-main').value=''; $('#ap-additional').value=''; $('#ap-colors').value=''; $('#ap-discount').value=''; $('#ap-free-shipping').checked=false; $('#ap-trending').checked=false; $('#ap-desc').value='';
-  if(mode==='edit'){ const p = products.find(x=>x.id===id); if(!p) return; $('#ap-name').value=p.name||''; $('#ap-price').value=p.price||0; $('#ap-main').value=(p.mainImage||''); $('#ap-additional').value=(p.images||[]).join('|'); $('#ap-colors').value=p.colors||''; $('#ap-discount').value=p.discountPercent||0; $('#ap-free-shipping').checked=!!p.freeShipping; $('#ap-trending').checked=!!p.isTrending; $('#ap-desc').value=p.description||''; }
+  $('#ap-name').value=''; $('#ap-price').value=''; $('#ap-main').value=''; $('#ap-additional').value=''; $('#ap-colors').value=''; $('#ap-discount').value=''; $('#ap-free-shipping').checked=false; $('#ap-trending').checked=false; $('#ap-desc').value=''; $('#ap-category').value='الكترونيات';
+  if(mode==='edit'){ const p = products.find(x=>x.id===id); if(!p) return; $('#ap-name').value=p.name||''; $('#ap-price').value=p.price||0; $('#ap-main').value=(p.mainImage||''); $('#ap-additional').value=(p.images||[]).join('|'); $('#ap-colors').value=p.colors||''; $('#ap-discount').value=p.discountPercent||0; $('#ap-free-shipping').checked=!!p.freeShipping; $('#ap-trending').checked=!!p.isTrending; $('#ap-desc').value=p.description||''; $('#ap-category').value=p.category||'الكترونيات'; }
   modal.classList.remove('hidden');
 }
 
@@ -372,15 +373,15 @@ function saveAdminProductFromModal(){
   const freeShipping = !!$('#ap-free-shipping').checked;
   const isTrending = !!$('#ap-trending').checked;
   const desc = $('#ap-desc').value.trim();
-  if(!name){ showMessage('خطأ','❌ اسم المنتج مطلوب','error'); return; }
+  const category = $('#ap-category').value || 'الكترونيات';
   if(mode==='add'){
     const id = 'p_'+Date.now();
     const imgs = additional?additional.split('|').map(s=>s.trim()).filter(Boolean):[];
     const mainImg = main && !/^https?:\/\//i.test(main) && !main.startsWith('/') ? `assets/products/${main}`:main;
     const imgsResolved = imgs.map(s=>(!/^https?:\/\//i.test(s) && !s.startsWith('/'))?`assets/products/${s}`:s);
-    products.unshift({id,name,price,mainImage:mainImg,images:imgsResolved,colors,description:desc,discountPercent:discount,freeShipping,isTrending});
+    products.unshift({id,name,price,mainImage:mainImg,images:imgsResolved,colors,category,description:desc,discountPercent:discount,freeShipping,isTrending});
   } else if(mode==='edit'){
-    const p = products.find(x=>x.id===editId); if(!p) return; p.name=name; p.price=price; p.description=desc; p.discountPercent=discount; p.freeShipping=freeShipping; p.isTrending=isTrending; p.colors=colors; p.mainImage = main && !/^https?:\/\//i.test(main) && !main.startsWith('/') ? `assets/products/${main}`:main; p.images = additional?additional.split('|').map(s=>s.trim()).filter(Boolean).map(s=>(!/^https?:\/\//i.test(s) && !s.startsWith('/'))?`assets/products/${s}`:s):[];
+    const p = products.find(x=>x.id===editId); if(!p) return; p.name=name; p.price=price; p.description=desc; p.discountPercent=discount; p.freeShipping=freeShipping; p.isTrending=isTrending; p.colors=colors; p.category=category; p.mainImage = main && !/^https?:\/\//i.test(main) && !main.startsWith('/') ? `assets/products/${main}`:main; p.images = additional?additional.split('|').map(s=>s.trim()).filter(Boolean).map(s=>(!/^https?:\/\//i.test(s) && !s.startsWith('/'))?`assets/products/${s}`:s):[];
   }
   save(STORAGE_KEYS.PRODUCTS, products); renderProducts(); renderAdminProducts(); modal.classList.add('hidden'); showMessage('نجاح','✅ تم حفظ المنتج','success');
   // Attempt to persist shared products: trigger download and try PUT to server
@@ -733,9 +734,10 @@ window.addEventListener('load', ()=>{
     const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='products_'+Date.now()+'.json'; a.click();
   });
   
-  // Search & Sort
-  $('#search-input').addEventListener('input', (e)=>{ renderProducts(e.target.value, $('#sort-select').value); });
-  $('#sort-select').addEventListener('change', (e)=>{ renderProducts($('#search-input').value, e.target.value); });
+  // Search & Sort & Category Filter
+  $('#search-input').addEventListener('input', (e)=>{ renderProducts(e.target.value, $('#sort-select').value, $('#category-filter').value); });
+  $('#sort-select').addEventListener('change', (e)=>{ renderProducts($('#search-input').value, e.target.value, $('#category-filter').value); });
+  $('#category-filter').addEventListener('change', (e)=>{ renderProducts($('#search-input').value, $('#sort-select').value, e.target.value); });
 
   // product modal close
   const pmClose = document.getElementById('pm-close'); if(pmClose) pmClose.addEventListener('click', closeProductModal);

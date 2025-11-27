@@ -71,6 +71,14 @@
 
     <section class="filters">
       <input id="search-input" type="text" placeholder="🔍 ابحث عن المنتج..." class="input">
+      <select id="category-filter" class="input">
+        <option value="">كل الفئات</option>
+        <option value="الكترونيات">🔌 الكترونيات</option>
+        <option value="الصحة والجمال">💄 الصحة والجمال</option>
+        <option value="العناية بالبشرة">🧴 العناية بالبشرة</option>
+        <option value="الرفاهية">✨ الرفاهية</option>
+        <option value="منتجات اخري">🎁 منتجات أخري</option>
+      </select>
       <select id="sort-select" class="input">
         <option value="newest">⏰ الأحدث أولاً</option>
         <option value="price-low">💰 السعر: الأقل أولاً</option>
@@ -91,6 +99,13 @@
       <div style="display:grid;gap:10px">
         <input id="ap-name" placeholder="🏷️ اسم المنتج" class="input">
         <input id="ap-price" type="number" placeholder="💰 السعر" class="input">
+        <select id="ap-category" class="input">
+          <option value="الكترونيات">🔌 الكترونيات</option>
+          <option value="الصحة والجمال">💄 الصحة والجمال</option>
+          <option value="العناية بالبشرة">🧴 العناية بالبشرة</option>
+          <option value="الرفاهية">✨ الرفاهية</option>
+          <option value="منتجات اخري">🎁 منتجات أخري</option>
+        </select>
         <input id="ap-main" placeholder="🖼️ الصورة الرئيسية (اسم ملف أو URL)" class="input">
         <input id="ap-additional" placeholder="🖼️ صور إضافية (افصل بـ | )" class="input">
         <input id="ap-colors" placeholder="🎨 الألوان (مفصولة بفواصل)" class="input">
