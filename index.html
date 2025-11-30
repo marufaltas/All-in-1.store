@@ -38,7 +38,12 @@
         </div>
         <div id="cart-items" style="max-height:calc(60vh);overflow-y:auto;border:1px solid rgba(255,255,255,0.06);padding:10px;border-radius:8px"></div>
         <div style="margin-top:12px">
-          <div style="margin-bottom:8px;padding:10px;border-radius:8px;background:rgba(0,0,0,0.12);">📦 <strong>أسعار الشحن</strong>:<br>
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <input id="coupon-input" type="text" placeholder="🎟️ كود الخصم" class="input" style="flex:1">
+            <button id="apply-coupon-btn" class="btn" style="padding:8px 12px">✓</button>
+          </div>
+          <div id="coupon-display" style="margin-bottom:8px;padding:8px;border-radius:6px;font-size:12px;display:none;background:rgba(34,197,94,0.1);color:#86efac"></div>
+          <div style="margin-bottom:8px;padding:10px;border-radius:8px;background:rgba(0,0,0,0.12);font-size:13px">📦 <strong>أسعار الشحن</strong>:<br>
             القاهرة والجيزة والاسكندرية - <strong>85 ج.م</strong><br>
             محافظات الدلتا - <strong>90 ج.م</strong><br>
             محافظات الصعيد - <strong>95 ج.م</strong>
@@ -51,6 +56,10 @@
             </select>
           </label>
           <div class="cart-summary" style="margin-top:6px">
+            <div style="margin-bottom:8px">
+              <input id="cart-coupon-code" class="input" placeholder="🎟️ أدخل كود الكوبون للحصول على خصم" style="width:100%;margin-bottom:6px">
+              <div id="cart-coupon-msg" style="font-size:13px;color:#f59e42;margin-bottom:4px"></div>
+            </div>
             <div style="font-weight:600;padding:12px;background:rgba(124,58,237,0.06);border-radius:8px">المجموع: <span id="cart-total">0</span> ج.م</div>
             <div style="display:flex;gap:8px;margin-top:10px">
               <button id="checkout-btn" class="btn primary" style="flex:1">✅ شراء الآن</button>
@@ -143,9 +152,12 @@
     <div class="admin-actions">
       <input id="excel-file" type="file" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel">
       <button id="import-excel" class="btn">📥 استيراد من ملف</button>
+    <input id="import-config-file" type="file" accept="application/json" style="display:none">
+    <button id="import-config-btn" class="btn" title="رفع ملف كونفج النشر">📁 رفع ملف كونفج النشر</button>
       <button id="add-product" class="btn outline">➕ إضافة منتج</button>
       <button id="export-products" class="btn outline">📤 تصدير</button>
       <button id="export-products-json" class="btn outline">📦 تنزيل JSON</button>
+      <button id="admin-coupons-btn" class="btn" style="background:#f59e42;color:#fff">🎟️ إدارة الكوبونات</button>
     </div>
     <div id="admin-products" style="max-height:60vh;overflow-y:auto;margin-top:12px"></div>
 
@@ -308,13 +320,70 @@
             <p id="pm-desc" style="color:rgba(255,255,255,0.85);line-height:1.4;font-size:14px"></p>
             <h5 style="margin-top:12px;margin-bottom:6px">البيانات</h5>
             <div id="pm-details" style="font-size:13px;color:rgba(255,255,255,0.75)"></div>
+            <h5 style="margin-top:12px;margin-bottom:8px">⭐ التقييمات (<span id="pm-rating-count">0</span>)</h5>
+            <div id="pm-rating-display" style="font-size:14px;color:#fbbf24;margin-bottom:10px"></div>
           </div>
           <div style="display:flex;gap:8px;margin-top:12px">
             <button id="pm-add-to-cart" class="btn primary" style="flex:1">🛒 أضف إلى العربة</button>
             <button id="pm-buy-now" class="btn outline" style="flex:1">💳 شراء الآن</button>
           </div>
+          <!-- Add Review Section -->
+          <div style="margin-top:12px;padding:12px;background:rgba(124,58,237,0.1);border-radius:8px">
+            <h5 style="margin:0 0 8px 0">📝 أضف تقييماً</h5>
+            <div style="display:grid;gap:8px">
+              <div style="display:flex;gap:6px">
+                <button class="star-btn" data-rating="1" style="background:none;border:none;cursor:pointer;font-size:20px">☆</button>
+                <button class="star-btn" data-rating="2" style="background:none;border:none;cursor:pointer;font-size:20px">☆</button>
+                <button class="star-btn" data-rating="3" style="background:none;border:none;cursor:pointer;font-size:20px">☆</button>
+                <button class="star-btn" data-rating="4" style="background:none;border:none;cursor:pointer;font-size:20px">☆</button>
+                <button class="star-btn" data-rating="5" style="background:none;border:none;cursor:pointer;font-size:20px">☆</button>
+                <span id="selected-rating" style="margin-right:8px">0</span>
+              </div>
+              <textarea id="review-comment" placeholder="شارك رأيك حول المنتج..." style="width:100%;min-height:50px;padding:8px;border-radius:6px;resize:none"></textarea>
+              <button id="submit-review" class="btn primary" style="width:100%">✓ أرسل التقييم</button>
+            </div>
+          </div>
+          <!-- Reviews List -->
+          <div style="margin-top:12px;max-height:180px;overflow-y:auto">
+            <h5 style="margin:0 0 8px 0">💬 المراجعات</h5>
+            <div id="pm-reviews-list" style="display:grid;gap:8px"></div>
+          </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Coupon Management Modal -->
+  <div id="coupons-modal" class="modal hidden">
+    <div class="modal-content glass" style="max-width:540px;width:95%;max-height:90vh;overflow-y:auto">
+      <button onclick="this.closest('.modal').remove()" class="btn-close" style="position:absolute;left:12px;top:12px">✕</button>
+      <h3 style="text-align:center;margin-bottom:16px">🎟️ إدارة الكوبونات والخصومات</h3>
+      <div style="display:grid;gap:10px;margin-bottom:16px">
+        <input id="coupon-code" placeholder="كود الكوبون (مثال: SUMMER50)" class="input">
+        <select id="coupon-type" class="input">
+          <option value="percent">📊 خصم نسبة (%)</option>
+          <option value="amount">💰 خصم مبلغ ثابت</option>
+        </select>
+        <input id="coupon-value" type="number" min="1" placeholder="قيمة الخصم" class="input">
+        <select id="coupon-category" class="input">
+          <option value="">✅ كل الفئات</option>
+          <option value="الكترونيات">🔌 الكترونيات</option>
+          <option value="الصحة والجمال">💄 الصحة والجمال</option>
+          <option value="العناية بالبشرة">🧴 العناية بالبشرة</option>
+          <option value="الرفاهية">✨ الرفاهية</option>
+          <option value="منتجات اخري">🎁 منتجات أخري</option>
+        </select>
+        <input id="coupon-expires" type="date" class="input">
+        <input id="coupon-usage" type="number" min="1" placeholder="حد أقصى للاستخدام (اختياري)" class="input">
+        <label style="display:flex;align-items:center;gap:8px"><input id="coupon-active" type="checkbox" checked> ✅ فعال</label>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button id="coupon-cancel" class="btn">❌ إلغاء</button>
+          <button id="coupon-save" class="btn primary">💾 حفظ الكوبون</button>
+        </div>
+      </div>
+      <hr style="margin:16px 0;border:none;border-top:1px solid rgba(255,255,255,0.1)">
+      <h4 style="margin:8px 0">📋 الكوبونات الحالية</h4>
+      <div id="coupons-list" style="max-height:250px;overflow-y:auto;display:grid;gap:8px"></div>
     </div>
   </div>
 

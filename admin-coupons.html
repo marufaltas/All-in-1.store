@@ -1,0 +1,32 @@
+<!-- واجهة إدارة الكوبونات في لوحة الأدمن -->
+<div id="admin-coupons-modal" class="modal hidden">
+  <div class="modal-content glass" style="max-width:540px;width:95%;max-height:90vh;overflow-y:auto">
+    <h3 style="text-align:center;margin-bottom:12px">🎟️ إدارة الكوبونات والخصومات</h3>
+    <div style="display:grid;gap:10px">
+      <input id="coupon-code" placeholder="كود الكوبون" class="input">
+      <select id="coupon-type" class="input">
+        <option value="percent">خصم نسبة (%)</option>
+        <option value="amount">خصم مبلغ ثابت</option>
+      </select>
+      <input id="coupon-value" type="number" min="1" placeholder="قيمة الخصم" class="input">
+      <select id="coupon-category" class="input">
+        <option value="">كل الفئات</option>
+        <option value="الكترونيات">الكترونيات</option>
+        <option value="الصحة والجمال">الصحة والجمال</option>
+        <option value="العناية بالبشرة">العناية بالبشرة</option>
+        <option value="الرفاهية">الرفاهية</option>
+        <option value="منتجات اخري">منتجات أخري</option>
+      </select>
+      <input id="coupon-expires" type="date" class="input" placeholder="تاريخ الانتهاء (اختياري)">
+      <input id="coupon-usage" type="number" min="1" placeholder="عدد مرات الاستخدام (اختياري)" class="input">
+      <label style="display:flex;align-items:center;gap:8px"><input id="coupon-active" type="checkbox" checked> فعال</label>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button id="coupon-save" class="btn primary">💾 حفظ الكوبون</button>
+        <button id="coupon-cancel" class="btn">إلغاء</button>
+      </div>
+    </div>
+    <hr style="margin:18px 0">
+    <h4 style="margin-bottom:8px">📋 الكوبونات الحالية</h4>
+    <div id="coupons-list" style="max-height:220px;overflow-y:auto"></div>
+  </div>
+</div>

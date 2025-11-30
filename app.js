@@ -1,5 +1,117 @@
 // All in 1 Store — Client-side E-commerce SPA
 const STORAGE_KEYS = {PRODUCTS:'ai_products_v3', CART:'ai_cart_v3', USER:'ai_user_v3', STATS:'ai_stats_v3', ACCOUNTS:'ai_accounts_v3'};
+const STORAGE_KEYS_COUPONS = 'ai_coupons_v1';
+let coupons = load(STORAGE_KEYS_COUPONS) || [];
+const STORAGE_KEYS_REVIEWS = 'ai_reviews_v1';
+let reviews = load(STORAGE_KEYS_REVIEWS) || [];
+
+function saveCoupon(coupon){
+  // coupon: {code, type, value, category, expires, usageLimit, usedCount, active}
+  const idx = coupons.findIndex(c=>c.code===coupon.code);
+  if(idx>-1) coupons[idx]=coupon;
+  else coupons.push(coupon);
+  save(STORAGE_KEYS_COUPONS, coupons);
+}
+
+function deleteCoupon(code){
+  coupons = coupons.filter(c=>c.code!==code);
+  save(STORAGE_KEYS_COUPONS, coupons);
+}
+
+function getValidCoupon(code, cart){
+  const now = Date.now();
+  const c = coupons.find(c=>c.code.toLowerCase()===code.toLowerCase() && c.active!==false && (!c.expires || now < c.expires) && (!c.usageLimit || (c.usedCount||0)<c.usageLimit));
+  if(!c) return null;
+  // category check
+  if(c.category && cart && !cart.some(item=>{
+    const p = products.find(x=>x.id===item.id);
+    return p && p.category===c.category;
+  })) return null;
+  return c;
+}
+
+function openCouponsModal(){
+  const modal = document.getElementById('coupons-modal') || $('#coupons-modal');
+  if(!modal) return;
+  modal.classList.remove('hidden');
+  renderCouponsList();
+}
+
+function renderCouponsList(){
+  const list = $('#coupons-list');
+  if(!list) return;
+  list.innerHTML = '';
+  if(coupons.length===0){ list.innerHTML='<p style="color:rgba(255,255,255,0.5)">📭 لا توجد كوبونات</p>'; return; }
+  coupons.forEach(c=>{
+    const expires = c.expires ? new Date(c.expires).toLocaleDateString('ar-EG') : 'بدون حد';
+    const el = document.createElement('div');
+    el.style.cssText='background:rgba(255,255,255,0.03);padding:10px;border-radius:6px;border:1px solid rgba(255,255,255,0.05);display:flex;justify-content:space-between;align-items:center;font-size:12px';
+    el.innerHTML=`<div><strong>${c.code}</strong> - ${c.type==='percent'?c.value+'%':c.value+' ج.م'} (${c.category||'كل الفئات'})</div><div style="display:flex;gap:6px"><button class="btn small" style="padding:4px 8px" onclick="editCoupon('${c.code}')">✏️</button><button class="btn small" style="padding:4px 8px;background:#ef4444" onclick="deleteCoupon('${c.code}')">🗑️</button></div>`;
+    list.appendChild(el);
+  });
+}
+
+function editCoupon(code){
+  const c = coupons.find(x=>x.code===code);
+  if(!c) return;
+  $('#coupon-code').value = c.code;
+  $('#coupon-type').value = c.type;
+  $('#coupon-value').value = c.value;
+  $('#coupon-category').value = c.category || '';
+  $('#coupon-expires').value = c.expires ? new Date(c.expires).toISOString().split('T')[0] : '';
+  $('#coupon-usage').value = c.usageLimit || '';
+  $('#coupon-active').checked = c.active!==false;
+}
+
+function saveCouponModal(){
+  const code = $('#coupon-code').value.trim().toUpperCase();
+  const type = $('#coupon-type').value;
+  const value = parseFloat($('#coupon-value').value);
+  const category = $('#coupon-category').value || '';
+  const expires = $('#coupon-expires').value ? new Date($('#coupon-expires').value).getTime() : null;
+  const usageLimit = parseInt($('#coupon-usage').value) || null;
+  const active = $('#coupon-active').checked;
+  if(!code || !value || value<0){ showMessage('خطأ','❌ بيانات ناقصة أو غير صحيحة','error'); return; }
+  const newCoupon = {code, type, value, category, expires, usageLimit, usedCount:0, active};
+  saveCoupon(newCoupon);
+  showMessage('نجاح','✅ تم حفظ الكوبون بنجاح','success');
+  $('#coupon-code').value=''; $('#coupon-value').value=''; $('#coupon-expires').value=''; $('#coupon-usage').value='';
+  renderCouponsList();
+}
+
+function applyCouponCode(code){
+  if(!user){ showMessage('تنبيه','❌ يرجى تسجيل الدخول أولاً','error'); return; }
+  const coupon = getValidCoupon(code, cart);
+  if(!coupon){ showMessage('خطأ','❌ الكوبون غير صحيح أو انتهى','error'); return; }
+  localStorage.setItem('applied_coupon', code);
+  renderCart();
+  showMessage('نجاح','✅ تم تطبيق الخصم بنجاح!','success');
+}
+
+// --- Reviews & Ratings ---
+function saveReview(productId, rating, comment, userName){
+  const review = {id:'rev_'+Date.now(), productId, rating, comment, userName, date:Date.now()};
+  reviews.push(review);
+  save(STORAGE_KEYS_REVIEWS, reviews);
+  renderProduct(productId);
+}
+
+function deleteReview(reviewId){
+  reviews = reviews.filter(r=>r.id!==reviewId);
+  save(STORAGE_KEYS_REVIEWS, reviews);
+}
+
+function getProductReviews(productId){
+  return reviews.filter(r=>r.productId===productId).sort((a,b)=>b.date-a.date);
+}
+
+function getProductRating(productId){
+  const prodReviews = getProductReviews(productId);
+  if(!prodReviews.length) return 0;
+  return (prodReviews.reduce((s,r)=>s+r.rating,0)/prodReviews.length).toFixed(1);
+}
+
+function renderProduct(productId){ renderProducts(); }
 const ADMIN_CREDS = {email:'mario.kabreta@gmail.com', password:'2%txPg6DXN'};
 const ADMIN_PHONE = '01069663958';
 const GEMINI_API_KEY = 'AIzaSyA46PXI2lz4luZrv5hJZnT5wt096CF1Xjg';
@@ -105,6 +217,19 @@ function addToCart(id){
   showToast(`✅ ${p.name} تمت الإضافة إلى العربة`);
 }
 
+function getCartCouponCode(){
+  const inp = document.getElementById('coupon-input');
+  return inp ? inp.value.trim() : '';
+}
+
+function removeCoupon(){
+  localStorage.removeItem('applied_coupon');
+  const inp = document.getElementById('coupon-input');
+  if(inp) inp.value = '';
+  renderCart();
+  showToast('✅ تم إزالة الخصم');
+}
+
 function renderCart(){
   document.getElementById('cart-count').textContent = cart.reduce((s,i)=>s+i.q,0);
   const id = 'cart-items'; const totalId = 'cart-total';
@@ -124,6 +249,27 @@ function renderCart(){
     container.appendChild(row);
     subtotal += (p.freeShipping ? 0 : effectivePrice) * item.q;
   });
+
+  // Apply coupon discount
+  const appliedCoupon = localStorage.getItem('applied_coupon');
+  const coupon = appliedCoupon ? getValidCoupon(appliedCoupon, cart) : null;
+  let discountAmount = 0;
+  if(coupon){
+    if(coupon.type==='percent') discountAmount = subtotal * (coupon.value/100);
+    else discountAmount = Math.min(coupon.value, subtotal);
+    subtotal = Math.max(0, subtotal - discountAmount);
+  }
+  
+  // Show coupon display
+  const couponDisplay = document.getElementById('coupon-display');
+  if(couponDisplay){
+    if(coupon){
+      couponDisplay.style.display='block';
+      couponDisplay.innerHTML=`✅ تم تطبيق الخصم: <strong>${coupon.code}</strong> (-${discountAmount.toFixed(2)} ج.م) <button style="background:none;border:none;color:#ff6b6b;cursor:pointer;float:left;padding:0" onclick="removeCoupon()">✕</button>`;
+    } else {
+      couponDisplay.style.display='none';
+    }
+  }
 
   // compute shipping based on selected region
   const region = (document.getElementById('shipping-region') && document.getElementById('shipping-region').value) || 'cairo';
@@ -237,6 +383,7 @@ function showWelcomePopup(name){
 // --- Product detail modal ---
 function openProductModal(id){
   const p = products.find(x=>x.id===id); if(!p) return;
+  window.currentProductId = p.id;
   const modal = document.getElementById('product-modal'); if(!modal) return;
   document.getElementById('pm-title').textContent = p.name;
   document.getElementById('pm-main-image').src = p.mainImage || 'https://via.placeholder.com/600x400?text=Product';
@@ -260,6 +407,29 @@ function openProductModal(id){
   if(p.discountPercent) details.push('خصم: '+p.discountPercent+'%');
   if(p.isTrending) details.push('⭐ منتج مميز');
   document.getElementById('pm-details').innerHTML = details.join('<br>') || '&nbsp;';
+  
+  // Display ratings
+  const rating = getProductRating(p.id);
+  const prodReviews = getProductReviews(p.id);
+  document.getElementById('pm-rating-count').textContent = prodReviews.length;
+  document.getElementById('pm-rating-display').innerHTML = rating > 0 ? ('⭐ '.repeat(Math.round(rating)) + ` (${rating})`) : '🚫 لا توجد تقييمات بعد';
+  
+  // Render reviews
+  const reviewsList = document.getElementById('pm-reviews-list');
+  reviewsList.innerHTML = '';
+  prodReviews.forEach(r=>{
+    const el = document.createElement('div');
+    el.style.cssText='background:rgba(255,255,255,0.03);padding:8px;border-radius:6px;border-left:3px solid #fbbf24;font-size:12px';
+    el.innerHTML=`<div style="display:flex;justify-content:space-between"><strong>${r.userName}</strong><span>${new Date(r.date).toLocaleDateString('ar-EG')}</span></div><div style="color:#fbbf24">${'⭐'.repeat(r.rating)}</div><div style="color:rgba(255,255,255,0.7);margin-top:4px">${r.comment}</div>${adminLoggedIn?`<button style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:10px;margin-top:4px" onclick="deleteReview('${r.id}'); openProductModal('${p.id}')">🗑️ حذف</button>`:''}`;
+    reviewsList.appendChild(el);
+  });
+  
+  // Reset review form
+  document.getElementById('review-comment').value='';
+  document.querySelectorAll('.star-btn').forEach(b=>b.textContent='☆');
+  document.getElementById('selected-rating').textContent='0';
+  window.selectedRating = 0;
+  
   // wire buttons
   const addBtn = document.getElementById('pm-add-to-cart');
   const buyBtn = document.getElementById('pm-buy-now');
@@ -311,6 +481,73 @@ function logoutAdmin(){
   });
 }
 
+// --- Settings for social media posting ---
+function openSocialMediaSettings(){
+  const modal = document.createElement('div'); modal.className='modal';
+  const fbId = localStorage.getItem('fb_page_id') || '';
+  const fbToken = localStorage.getItem('fb_page_token') || '';
+  const tgToken = localStorage.getItem('tg_bot_token') || '';
+  const tgChat = localStorage.getItem('tg_chat_id') || '';
+  const igToken = localStorage.getItem('ig_token') || '';
+  
+  modal.innerHTML = `
+    <div class="modal-content glass" style="max-width:600px;padding:20px;animation:slideIn 0.25s">
+      <button onclick="this.closest('.modal').remove()" class="btn-close" style="position:absolute;right:12px;top:12px">✕</button>
+      <h3 style="color:#06b6d4;margin-bottom:16px">⚙️ إعدادات وسائل التواصل</h3>
+      
+      <div style="margin-bottom:16px;padding:12px;background:rgba(239,68,68,0.1);border-radius:8px;border-left:3px solid #ef4444">
+        <strong style="color:#fca5a5">⚠️ تحذير أمان</strong>
+        <p style="font-size:12px;color:rgba(255,255,255,0.7);margin-top:8px">البيانات تُحفظ محلياً في متصفحك. لا تشاركها مع أحد. استخدم رموز منفصلة (page tokens وليس حسابك الشخصي).</p>
+      </div>
+      
+      <h4 style="color:#a78bfa;margin-top:16px;margin-bottom:8px">📱 فيسبوك</h4>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <input id="sms-fb-id" type="text" placeholder="Page ID" value="${fbId}" style="flex:1;padding:8px;border-radius:6px;border:1px solid rgba(168,85,247,0.3);background:rgba(168,85,247,0.05)">
+      </div>
+      <textarea id="sms-fb-token" placeholder="Page Access Token" style="width:100%;min-height:60px;padding:8px;border-radius:6px;border:1px solid rgba(168,85,247,0.3);background:rgba(168,85,247,0.05);margin-bottom:8px;font-size:11px;font-family:monospace">${fbToken}</textarea>
+      <a href="https://developers.facebook.com/docs/facebook-login/access-tokens#page-access-tokens" target="_blank" style="font-size:11px;color:#06b6d4;text-decoration:underline">📖 كيفية الحصول على Page Access Token</a>
+      
+      <h4 style="color:#60a5fa;margin-top:16px;margin-bottom:8px">✈️ تيليجرام</h4>
+      <input id="sms-tg-token" type="text" placeholder="Bot Token (من @BotFather)" value="${tgToken}" style="width:100%;padding:8px;border-radius:6px;border:1px solid rgba(96,165,250,0.3);background:rgba(96,165,250,0.05);margin-bottom:8px;font-family:monospace">
+      <input id="sms-tg-chat" type="text" placeholder="Chat ID أو اسم القناة (@channel)" value="${tgChat}" style="width:100%;padding:8px;border-radius:6px;border:1px solid rgba(96,165,250,0.3);background:rgba(96,165,250,0.05);margin-bottom:8px;font-family:monospace">
+      <a href="https://core.telegram.org/bots#botfather" target="_blank" style="font-size:11px;color:#06b6d4;text-decoration:underline">📖 إنشاء Telegram Bot</a>
+      
+      <h4 style="color:#ec4899;margin-top:16px;margin-bottom:8px">📸 إنستجرام</h4>
+      <textarea id="sms-ig-token" placeholder="Instagram Graph API Token (اختياري)" style="width:100%;min-height:50px;padding:8px;border-radius:6px;border:1px solid rgba(236,72,153,0.3);background:rgba(236,72,153,0.05);font-size:11px;font-family:monospace">${igToken}</textarea>
+      <p style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:8px">ملاحظة: النشر على إنستجرام يحتاج متطلبات معقدة، يمكن استخدام fallback للمشاركة اليدوية.</p>
+      
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+        <button id="sms-clear" class="btn" style="background:#ef4444">🗑️ حذف الكل</button>
+        <button id="sms-save" class="btn primary">💾 حفظ</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  
+  modal.querySelector('#sms-save').addEventListener('click', ()=>{
+    localStorage.setItem('fb_page_id', modal.querySelector('#sms-fb-id').value.trim());
+    localStorage.setItem('fb_page_token', modal.querySelector('#sms-fb-token').value.trim());
+    localStorage.setItem('tg_bot_token', modal.querySelector('#sms-tg-token').value.trim());
+    localStorage.setItem('tg_chat_id', modal.querySelector('#sms-tg-chat').value.trim());
+    localStorage.setItem('ig_token', modal.querySelector('#sms-ig-token').value.trim());
+    showMessage('نجاح','✅ تم حفظ بيانات الاعتماد','success');
+    modal.remove();
+  });
+  
+  modal.querySelector('#sms-clear').addEventListener('click', ()=>{
+    showConfirm('❓ حذف جميع البيانات المحفوظة؟').then(ok=>{
+      if(!ok) return;
+      localStorage.removeItem('fb_page_id');
+      localStorage.removeItem('fb_page_token');
+      localStorage.removeItem('tg_bot_token');
+      localStorage.removeItem('tg_chat_id');
+      localStorage.removeItem('ig_token');
+      showMessage('تم','✅ تم حذف البيانات','success');
+      modal.remove();
+    });
+  });
+}
+
 function renderAdminProducts(){
   const c = $('#admin-products'); 
   c.innerHTML='';
@@ -318,12 +555,154 @@ function renderAdminProducts(){
   products.forEach(p=>{
     const el = document.createElement('div'); 
     el.className='admin-product';
-    el.innerHTML = `<img src='${p.mainImage||"https://via.placeholder.com/80"}'><div style='flex:1;min-width:150px'><strong style='font-size:13px'>${p.name}</strong><div style='font-size:11px;color:rgba(255,255,255,0.6)'>${p.price} ج.م ${p.discountPercent?(' - 🏷️ '+p.discountPercent+'%'):''} ${p.freeShipping?'- 🚚 مجاني':''}</div><div style='font-size:10px;color:rgba(124,58,237,0.9)'>📂 ${p.category||'الكترونيات'}</div></div><div style='display:flex;flex-direction:column;gap:4px'><button class='btn small edit' data-id='${p.id}' style='padding:4px 8px;font-size:11px'>✏️ تعديل</button><button class='btn small del' data-id='${p.id}' style='padding:4px 8px;font-size:11px'>🗑️ حذف</button></div>`;
+    el.innerHTML = `<img src='${p.mainImage||"https://via.placeholder.com/80"}'><div style='flex:1;min-width:150px'><strong style='font-size:13px'>${p.name}</strong><div style='font-size:11px;color:rgba(255,255,255,0.6)'>${p.price} ج.م ${p.discountPercent?(' - 🏷️ '+p.discountPercent+'%'):''} ${p.freeShipping?'- 🚚 مجاني':''}</div><div style='font-size:10px;color:rgba(124,58,237,0.9)'>📂 ${p.category||'الكترونيات'}</div></div><div style='display:flex;flex-direction:column;gap:6px'><button class='btn small edit' data-id='${p.id}' style='padding:6px 8px;font-size:11px'>✏️ تعديل</button><button class='btn small del' data-id='${p.id}' style='padding:6px 8px;font-size:11px'>🗑️ حذف</button><button class='btn small post-fb' data-id='${p.id}' style='padding:6px 8px;font-size:11px;background:#1877f2;color:#fff'>📣 فيس</button><button class='btn small post-tg' data-id='${p.id}' style='padding:6px 8px;font-size:11px;background:#2ca5e0;color:#fff'>✈️ تيليج</button><button class='btn small post-ig' data-id='${p.id}' style='padding:6px 8px;font-size:11px;background:#e4405f;color:#fff'>📸 إنستا</button></div>`;
     c.appendChild(el);
   });
   
   $$('.admin-product .edit').forEach(b=>b.addEventListener('click', (e)=>{ openAdminProductModal('edit', e.target.dataset.id); }));
   $$('.admin-product .del').forEach(b=>b.addEventListener('click', (e)=>{ const id=e.target.dataset.id; showConfirm('❓ حذف المنتج؟').then(ok=>{ if(!ok) return; products=products.filter(p=>p.id!==id); save(STORAGE_KEYS.PRODUCTS, products); renderProducts(); renderAdminProducts(); saveProductsShared(); }); }));
+  // Publish to social handlers
+  $$('.admin-product .post-fb').forEach(b=>b.addEventListener('click', (e)=>{ const id=e.target.dataset.id; openPublishModal('facebook', id); }));
+  $$('.admin-product .post-tg').forEach(b=>b.addEventListener('click', (e)=>{ const id=e.target.dataset.id; openPublishModal('telegram', id); }));
+  $$('.admin-product .post-ig').forEach(b=>b.addEventListener('click', (e)=>{ const id=e.target.dataset.id; openPublishModal('instagram', id); }));
+}
+
+// --- Social publish helpers ---
+function openPublishModal(provider, productId){
+  const p = products.find(x=>x.id===productId);
+  if(!p) return showMessage('خطأ','❌ المنتج غير موجود للنشر','error');
+  // Build modal content (simple, dynamic)
+  const modal = document.createElement('div'); modal.className='modal';
+  const images = (p.images && p.images.length) ? p.images.slice() : [];
+  if(p.mainImage) images.unshift(p.mainImage);
+  const imgsHtml = images.map(src=>`<img src="${src}" style="width:80px;height:60px;object-fit:cover;margin-right:6px;border-radius:6px">`).join('');
+  const providerNames = {facebook:'فيسبوك', telegram:'تيليجرام', instagram:'إنستجرام'};
+  const providerName = providerNames[provider] || provider;
+  modal.innerHTML = `
+    <div class="modal-content glass" style="max-width:680px;padding:18px 16px;animation:slideIn 0.25s">
+      <button onclick="this.closest('.modal').remove()" class="btn-close" style="position:absolute;left:12px;top:12px">✕</button>
+      <h3 style="margin:6px 0;color:#06b6d4">📤 نشر على ${providerName}</h3>
+      <div style="display:flex;gap:12px;align-items:center;margin:8px 0;overflow-x:auto">${imgsHtml}</div>
+      <textarea id="sp-text" style="width:100%;min-height:100px;padding:8px;border-radius:8px;margin-top:8px;font-family:sans-serif">${p.description||p.name}</textarea>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px">
+        <button id="sp-open-fallback" class="btn">📲 مشاركة يدوية</button>
+        <button id="sp-publish" class="btn primary">✈️ نشر الآن</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  // handlers
+  modal.querySelector('#sp-open-fallback').addEventListener('click', ()=>{
+    const txt = modal.querySelector('#sp-text').value;
+    if(provider==='facebook') openFacebookShareFallback(p, txt);
+    else if(provider==='telegram') openTelegramShareFallback(p, txt);
+    else if(provider==='instagram') openInstagramShareFallback(p, txt);
+  });
+  modal.querySelector('#sp-publish').addEventListener('click', async ()=>{
+    const txt = modal.querySelector('#sp-text').value;
+    try{
+      if(provider==='facebook') await postToFacebook(productId, txt);
+      else if(provider==='telegram') await postToTelegram(productId, txt);
+      else if(provider==='instagram') await postToInstagram(productId, txt);
+    }catch(err){
+      console.warn(err);
+      showMessage('خطأ', (err.message || err.toString()), 'error');
+    }
+    modal.remove();
+  });
+}
+
+async function postToFacebook(productId, caption){
+  const p = products.find(x=>x.id===productId); if(!p) throw new Error('منتج غير موجود');
+  const pageId = localStorage.getItem('fb_page_id');
+  const pageToken = localStorage.getItem('fb_page_token');
+  if(!pageId || !pageToken) throw new Error('❌ لم تُحفظ بيانات فيسبوك. اذهب إلى الإعدادات وأدخل Page ID و Page Access Token');
+  const imageUrl = (p.mainImage) ? p.mainImage : (p.images && p.images[0]) || '';
+  if(!imageUrl) throw new Error('❌ المنتج لا يحتوي على صورة. أضف صورة قبل النشر.');
+  const url = `https://graph.facebook.com/v18.0/${pageId}/photos`;
+  try{
+    const form = new URLSearchParams();
+    form.append('url', imageUrl);
+    form.append('caption', caption);
+    form.append('access_token', pageToken);
+    const resp = await fetch(url, { method: 'POST', body: form });
+    const data = await resp.json();
+    if(!resp.ok || data.error) throw new Error(data.error ? `${data.error.code}: ${data.error.message}` : 'FB API error');
+    showMessage('نجاح','✅ تم النشر على فيسبوك بنجاح! 🎉','success');
+  }catch(err){
+    console.warn('FB publish failed', err);
+    if(err.message.includes('CORS') || err.message.includes('Network')){
+      showMessage('خطأ في الاتصال','⚠️ حدث خطأ CORS أو شبكة. افتح المشاركة من متصفح بديل أو استخدم نافذة المشاركة.','error').then(()=> openFacebookShareFallback(p, caption));
+    } else {
+      throw err;
+    }
+  }
+}
+
+function openFacebookShareFallback(p, caption){
+  // Facebook share dialog accepts URL and quote — we will try to share the product mainImage URL as the URL
+  // If you have a product public page/link, put it in product.url; otherwise share image URL
+  const shareUrl = p.url || p.mainImage || location.href;
+  const dialog = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(caption)}`;
+  window.open(dialog,'_blank');
+}
+
+async function postToTelegram(productId, caption){
+  const p = products.find(x=>x.id===productId); if(!p) throw new Error('منتج غير موجود');
+  const botToken = localStorage.getItem('tg_bot_token');
+  const chatId = localStorage.getItem('tg_chat_id');
+  if(!botToken || !chatId) throw new Error('❌ لم تُحفظ بيانات تيليجرام. اذهب إلى الإعدادات وأدخل Bot Token و Chat ID');
+  const imageUrl = (p.mainImage) ? p.mainImage : (p.images && p.images[0]) || '';
+  if(!imageUrl) throw new Error('❌ المنتج لا يحتوي على صورة. أضف صورة قبل النشر.');
+  const api = `https://api.telegram.org/bot${botToken}/sendPhoto`;
+  try{
+    const form = new URLSearchParams();
+    form.append('chat_id', chatId);
+    form.append('photo', imageUrl);
+    form.append('caption', caption);
+    const resp = await fetch(api, { method: 'POST', body: form });
+    const data = await resp.json();
+    if(!resp.ok || !data.ok) throw new Error(data.description || 'Telegram API error');
+    showMessage('نجاح','✅ تم النشر على تيليجرام بنجاح! 🎉','success');
+  }catch(err){
+    console.warn('TG publish failed', err);
+    if(err.message.includes('CORS') || err.message.includes('Network')){
+      showMessage('خطأ في الاتصال','⚠️ حدث خطأ في الاتصال. استخدم نافذة المشاركة البديلة.','error').then(()=> openTelegramShareFallback(p, caption));
+    } else {
+      throw err;
+    }
+  }
+}
+
+function openTelegramShareFallback(p, caption){
+  const shareUrl = p.url || p.mainImage || location.href;
+  const dialog = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(caption)}`;
+  window.open(dialog,'_blank');
+}
+
+async function postToInstagram(productId, caption){
+  // Instagram Graph API is complex and requires Business Account setup
+  // For now, we'll use a simpler fallback approach
+  const p = products.find(x=>x.id===productId); if(!p) throw new Error('منتج غير موجود');
+  const igToken = localStorage.getItem('ig_token');
+  if(!igToken){
+    // No token saved — use fallback
+    return openInstagramShareFallback(p, caption);
+  }
+  // Instagram Graph API requires Business Account and specific setup
+  // This is a placeholder for potential Instagram API integration
+  // For most users, fallback to share dialog is recommended
+  showMessage('ملاحظة','إنستجرام يحتاج إعداد معقد. سيتم فتح نافذة المشاركة البديلة.','info').then(()=> openInstagramShareFallback(p, caption));
+}
+
+function openInstagramShareFallback(p, caption){
+  // Instagram doesn't have a direct share URL like Facebook/Telegram
+  // We'll open Instagram and suggest manual posting
+  const message = `📱 قم بنسخ المعلومات التالية ونشرها على إنستجرام:\n\n${caption}\n\n🔗 ${p.url || p.mainImage || location.href}`;
+  showMessage('قم بالنشر يدويًا', message, 'info').then(()=>{
+    // Open Instagram in new tab
+    window.open('https://www.instagram.com/', '_blank');
+  });
 }
 
 function editProductPrompt(id){
@@ -680,6 +1059,20 @@ window.addEventListener('load', ()=>{
     // ignore — use localStorage
   }).catch(()=>{/*ignore*/}).finally(()=>{});
 
+  // Try to load optional client-side config (config.json) to prefill admin social credentials
+  fetch('config.json').then(r=>{ if(!r.ok) throw new Error('no config'); return r.json(); }).then(cfg=>{
+    try{
+      // Only set keys if not already present in localStorage to avoid overwriting user changes
+      if(cfg.fb_page_id && !localStorage.getItem('fb_page_id')) localStorage.setItem('fb_page_id', cfg.fb_page_id);
+      if(cfg.fb_page_token && !localStorage.getItem('fb_page_token')) localStorage.setItem('fb_page_token', cfg.fb_page_token);
+      if(cfg.ig_token && !localStorage.getItem('ig_token')) localStorage.setItem('ig_token', cfg.ig_token);
+      if(cfg.tg_bot_token && !localStorage.getItem('tg_bot_token')) localStorage.setItem('tg_bot_token', cfg.tg_bot_token);
+      if(cfg.tg_chat_id && !localStorage.getItem('tg_chat_id')) localStorage.setItem('tg_chat_id', cfg.tg_chat_id);
+      if(cfg.deploy_token && !localStorage.getItem('deploy_token')) localStorage.setItem('deploy_token', cfg.deploy_token);
+      console.info('Loaded client config from config.json');
+    }catch(e){ console.warn('config.json found but could not be applied', e); }
+  }).catch(()=>{/*no config.json — ok*/});
+
   // Render UI after loading products (skip users.json fetch to avoid auto-download)
   renderProducts(); 
   renderCart(); 
@@ -693,6 +1086,32 @@ window.addEventListener('load', ()=>{
   $('#close-cart-modal').addEventListener('click', ()=>{ $('#cart-modal').classList.add('hidden'); });
   $('#clear-cart-btn').addEventListener('click', ()=>{ showConfirm('❓ مسح العربة؟').then(ok=>{ if(!ok) return; cart=[]; save(STORAGE_KEYS.CART, cart); renderCart(); }); });
   $('#checkout-btn').addEventListener('click', checkout);
+  
+  // Coupon handlers
+  const couponInput = $('#coupon-input');
+  if(couponInput){
+    couponInput.addEventListener('keypress', (e)=>{ if(e.key==='Enter') applyCouponCode(e.target.value); });
+  }
+  const applyCouponBtn = $('#apply-coupon-btn');
+  if(applyCouponBtn){
+    applyCouponBtn.addEventListener('click', ()=>{ applyCouponCode(couponInput.value); });
+  }
+  
+  // Admin coupons
+  const adminCouponsBtn = $('#admin-coupons-btn');
+  if(adminCouponsBtn){
+    adminCouponsBtn.addEventListener('click', openCouponsModal);
+  }
+  
+  // Coupon modal events
+  const couponSaveBtn = $('#coupon-save');
+  if(couponSaveBtn) couponSaveBtn.addEventListener('click', saveCouponModal);
+  
+  const couponCancelBtn = $('#coupon-cancel');
+  if(couponCancelBtn) couponCancelBtn.addEventListener('click', ()=>{ 
+    $('#coupons-modal').classList.add('hidden');
+    $('#coupon-code').value=''; $('#coupon-value').value=''; $('#coupon-expires').value=''; $('#coupon-usage').value='';
+  });
   
   // Admin
   $('#admin-status').addEventListener('click', logoutAdmin);
@@ -722,9 +1141,50 @@ window.addEventListener('load', ()=>{
   // Admin functions
   $('#add-product').addEventListener('click', addProductPrompt);
   $('#import-excel').addEventListener('click', ()=>{ const f=$('#excel-file').files[0]; if(!f) { showMessage('تنبيه','❌ اختر ملف','error'); return; } importFile(f); });
+  // Import publish config (JSON) handler
+  const importConfigBtn = $('#import-config-btn');
+  const importConfigFile = $('#import-config-file');
+  if(importConfigBtn && importConfigFile){
+    importConfigBtn.addEventListener('click', ()=> importConfigFile.click());
+    importConfigFile.addEventListener('change', (e)=>{
+      const f = e.target.files && e.target.files[0];
+      if(!f) return;
+      const reader = new FileReader();
+      reader.onload = (evt)=>{
+        try{
+          const cfg = JSON.parse(evt.target.result);
+          const accepted = ['fb_page_id','fb_page_token','ig_token','tg_bot_token','tg_chat_id','deploy_token'];
+          let found = 0;
+          accepted.forEach(k=>{ if(cfg[k]){ localStorage.setItem(k, String(cfg[k])); found++; } });
+          if(found>0){
+            showMessage('نجاح','✅ تم استيراد ملف الكونفيج وحفظ القيم محلياً','success').then(()=>{ openSocialMediaSettings(); });
+          } else {
+            showMessage('تنبيه','⚠️ الملف لا يحتوي على مفاتيح معروفة (fb_page_id, fb_page_token, ig_token, tg_bot_token, tg_chat_id)','error');
+          }
+        }catch(err){
+          showMessage('خطأ','❌ فشل في قراءة الملف. تأكد أنه JSON صالح.','error');
+        }
+      };
+      reader.readAsText(f);
+      // reset input so same file can be re-uploaded if needed
+      importConfigFile.value = '';
+    });
+  }
   $('#export-products').addEventListener('click', exportProducts);
   $('#logout-admin').addEventListener('click', logoutAdmin);
   $('#generate-desc').addEventListener('click', generateDescriptionForSelected);
+  // social media settings button
+  const socialSettingsBtn = document.getElementById('social-settings-btn') || document.createElement('button');
+  if(!document.getElementById('social-settings-btn')){
+    socialSettingsBtn.id = 'social-settings-btn';
+    socialSettingsBtn.className = 'btn';
+    socialSettingsBtn.textContent = '⚙️ إعدادات وسائل التواصل';
+    socialSettingsBtn.style.cssText = 'padding:8px 12px;font-size:13px;margin-right:8px';
+    const adminSection = document.querySelector('[style*="admin"]') || document.body;
+    const firstAdmin = adminSection.querySelector('button');
+    if(firstAdmin) firstAdmin.parentNode.insertBefore(socialSettingsBtn, firstAdmin);
+  }
+  const socialBtn = $('#social-settings-btn'); if(socialBtn) socialBtn.addEventListener('click', openSocialMediaSettings);
   // admin product modal buttons
   const apSave = $('#ap-save'); if(apSave) apSave.addEventListener('click', saveAdminProductFromModal);
   const apCancel = $('#ap-cancel'); if(apCancel) apCancel.addEventListener('click', cancelAdminProductModal);
@@ -741,6 +1201,30 @@ window.addEventListener('load', ()=>{
 
   // product modal close
   const pmClose = document.getElementById('pm-close'); if(pmClose) pmClose.addEventListener('click', closeProductModal);
+  // Review stars & submit handlers (delegated)
+  document.addEventListener('click', (e)=>{
+    const t = e.target;
+    if(t && t.classList && t.classList.contains('star-btn')){
+      const rating = parseInt(t.getAttribute('data-rating')) || 0;
+      window.selectedRating = rating;
+      document.querySelectorAll('.star-btn').forEach(b=>{ const r = parseInt(b.getAttribute('data-rating'))||0; b.textContent = (r <= rating) ? '★' : '☆'; });
+      const sel = document.getElementById('selected-rating'); if(sel) sel.textContent = String(window.selectedRating || 0);
+    }
+  });
+  const submitReviewBtn = document.getElementById('submit-review');
+  if(submitReviewBtn){
+    submitReviewBtn.addEventListener('click', ()=>{
+      const rating = window.selectedRating || parseInt((document.getElementById('selected-rating')||{textContent:'0'}).textContent) || 0;
+      const comment = (document.getElementById('review-comment')||{value:''}).value.trim();
+      const pid = window.currentProductId;
+      if(!pid){ showMessage('خطأ','❌ حدث خطأ: لم يتم تحديد المنتج','error'); return; }
+      if(rating<=0){ showMessage('تنبيه','❌ الرجاء اختيار عدد النجوم أولاً','error'); return; }
+      if(!user){ showMessage('تنبيه','❌ الرجاء تسجيل الدخول لإضافة تقييم','error').then(()=>{ openAccountModal(); }); return; }
+      const userName = user && user.name ? user.name : 'مستخدم'
+      saveReview(pid, rating, comment, userName);
+      showMessage('نجاح','✅ تم إضافة التقييم بنجاح','success').then(()=>{ openProductModal(pid); });
+    });
+  }
   // shipping region change should update cart totals
   const shipSel = document.getElementById('shipping-region'); if(shipSel) shipSel.addEventListener('change', ()=>{ renderCart(); });
   
@@ -767,3 +1251,52 @@ window.addEventListener('load', ()=>{
 document.addEventListener('keydown', (e)=>{
   if((e.ctrlKey || e.metaKey) && e.key === '\\') openAdminLogin(); // Ctrl+\ to open admin
 });
+
+// إدارة الكوبونات
+const couponsBtn = document.getElementById('admin-coupons-btn');
+if(couponsBtn){
+  couponsBtn.addEventListener('click', ()=>{
+    document.getElementById('admin-coupons-modal').classList.remove('hidden');
+    renderCouponsList();
+  });
+}
+const couponsModal = document.getElementById('admin-coupons-modal');
+if(couponsModal){
+  couponsModal.querySelector('#coupon-cancel').addEventListener('click', ()=>{
+    couponsModal.classList.add('hidden');
+  });
+  couponsModal.querySelector('#coupon-save').addEventListener('click', ()=>{
+    const code = couponsModal.querySelector('#coupon-code').value.trim();
+    const type = couponsModal.querySelector('#coupon-type').value;
+    const value = parseFloat(couponsModal.querySelector('#coupon-value').value)||0;
+    const category = couponsModal.querySelector('#coupon-category').value;
+    const expires = couponsModal.querySelector('#coupon-expires').value ? new Date(couponsModal.querySelector('#coupon-expires').value).getTime() : null;
+    const usageLimit = parseInt(couponsModal.querySelector('#coupon-usage').value)||null;
+    const active = couponsModal.querySelector('#coupon-active').checked;
+    if(!code || !value){ showMessage('خطأ','❌ يجب إدخال كود وقيمة الخصم','error'); return; }
+    saveCoupon({code,type,value,category,expires,usageLimit,active,usedCount:0});
+    renderCouponsList();
+    showMessage('نجاح','✅ تم حفظ الكوبون','success');
+  });
+}
+
+function renderCouponsList(){
+  const list = document.getElementById('coupons-list');
+  if(!list) return;
+  list.innerHTML = '';
+  if(!coupons.length){ list.innerHTML = '<p style="color:rgba(255,255,255,0.5)">لا توجد كوبونات</p>'; return; }
+  coupons.forEach(c=>{
+    const el = document.createElement('div');
+    el.style.cssText = 'background:rgba(255,255,255,0.04);padding:8px;border-radius:6px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;font-size:13px';
+    el.innerHTML = `<div><strong>${c.code}</strong> <span style='color:#f59e42'>${c.type==='percent'?c.value+'%':c.value+' ج.م'}</span> ${c.category?'<span style="color:#06b6d4">('+c.category+')</span>':''} ${c.expires?'<span style="color:#ef4444">ينتهي '+(new Date(c.expires)).toLocaleDateString('ar-EG')+'</span>':''} ${c.active?'<span style="color:#22c55e">فعال</span>':'<span style="color:#ef4444">غير فعال</span>'}</div><button class='btn small' style='background:#ef4444;color:#fff' data-code='${c.code}'>🗑️ حذف</button>`;
+    list.appendChild(el);
+  });
+  list.querySelectorAll('button[data-code]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const code = btn.getAttribute('data-code');
+      deleteCoupon(code);
+      renderCouponsList();
+      showMessage('تم','✅ تم حذف الكوبون','success');
+    });
+  });
+}
