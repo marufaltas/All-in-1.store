@@ -467,6 +467,8 @@ function adminLogin(){
     renderAccounts();
     $('#admin-email').value='';
     $('#admin-password').value='';
+    // ensure social settings button is available only for admin
+    ensureSocialSettingsButton();
   } else {
     showMessage('خطأ','❌ البريد أو كلمة المرور خاطئة','error');
   }
@@ -478,6 +480,8 @@ function logoutAdmin(){
     adminLoggedIn = false;
     $('#admin-status').style.display='none';
     $('#admin-panel').classList.add('hidden');
+    // remove social settings button when admin logs out
+    const ss = document.getElementById('social-settings-btn'); if(ss) ss.remove();
   });
 }
 
@@ -1073,6 +1077,23 @@ window.addEventListener('load', ()=>{
     }catch(e){ console.warn('config.json found but could not be applied', e); }
   }).catch(()=>{/*no config.json — ok*/});
 
+// Ensure social settings button is present only for admin users
+function ensureSocialSettingsButton(){
+  if(!adminLoggedIn) return;
+  if(document.getElementById('social-settings-btn')) return;
+  const btn = document.createElement('button');
+  btn.id = 'social-settings-btn';
+  btn.className = 'btn';
+  btn.textContent = '⚙️ إعدادات وسائل التواصل';
+  btn.style.cssText = 'padding:8px 12px;font-size:13px;margin-right:8px';
+  // Try to insert into admin actions area
+  const adminActions = document.querySelector('.admin-actions') || document.querySelector('[style*="admin"]') || document.body;
+  const firstBtn = adminActions ? adminActions.querySelector('button') : null;
+  if(firstBtn) firstBtn.parentNode.insertBefore(btn, firstBtn);
+  else if(adminActions) adminActions.appendChild(btn);
+  btn.addEventListener('click', openSocialMediaSettings);
+}
+
   // Render UI after loading products (skip users.json fetch to avoid auto-download)
   renderProducts(); 
   renderCart(); 
@@ -1173,18 +1194,8 @@ window.addEventListener('load', ()=>{
   $('#export-products').addEventListener('click', exportProducts);
   $('#logout-admin').addEventListener('click', logoutAdmin);
   $('#generate-desc').addEventListener('click', generateDescriptionForSelected);
-  // social media settings button
-  const socialSettingsBtn = document.getElementById('social-settings-btn') || document.createElement('button');
-  if(!document.getElementById('social-settings-btn')){
-    socialSettingsBtn.id = 'social-settings-btn';
-    socialSettingsBtn.className = 'btn';
-    socialSettingsBtn.textContent = '⚙️ إعدادات وسائل التواصل';
-    socialSettingsBtn.style.cssText = 'padding:8px 12px;font-size:13px;margin-right:8px';
-    const adminSection = document.querySelector('[style*="admin"]') || document.body;
-    const firstAdmin = adminSection.querySelector('button');
-    if(firstAdmin) firstAdmin.parentNode.insertBefore(socialSettingsBtn, firstAdmin);
-  }
-  const socialBtn = $('#social-settings-btn'); if(socialBtn) socialBtn.addEventListener('click', openSocialMediaSettings);
+  // social settings button is created only for admin via ensureSocialSettingsButton()
+  if(adminLoggedIn) ensureSocialSettingsButton();
   // admin product modal buttons
   const apSave = $('#ap-save'); if(apSave) apSave.addEventListener('click', saveAdminProductFromModal);
   const apCancel = $('#ap-cancel'); if(apCancel) apCancel.addEventListener('click', cancelAdminProductModal);
